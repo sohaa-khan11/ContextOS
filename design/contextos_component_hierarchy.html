@@ -1,0 +1,68 @@
+<h2 style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);">Component hierarchy for each ContextOS screen, matching the design document's component names</h2>
+<style>
+.tree,.tree ul{list-style:none;margin:0;padding-left:14px;border-left:0.5px solid var(--color-border-tertiary);}
+.tree{padding-left:0;border-left:none;}
+.tree li{position:relative;padding:3px 0 3px 12px;font-size:13px;color:var(--color-text-secondary);}
+.tree code{font-family:var(--font-mono);font-size:12px;color:var(--color-text-primary);background:var(--color-background-secondary);padding:1px 5px;border-radius:4px;}
+.hcard{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:1rem 1.25rem;}
+.hcard p.t{font-weight:500;font-size:14px;margin:0 0 8px;}
+</style>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;">
+
+<div class="hcard"><p class="t">Login</p>
+<ul class="tree"><li><code>LoginScreen</code>
+<ul><li><code>EnterDemoButton</code></li></ul></li></ul></div>
+
+<div class="hcard"><p class="t">Dashboard</p>
+<ul class="tree"><li><code>DashboardLayout</code>
+<ul>
+<li><code>Header</code> + <code>NewProjectButton</code></li>
+<li><code>ProjectGrid</code>
+<ul><li><code>ProjectCard</code> &times; n</li></ul></li>
+<li><code>SkeletonCard</code> &times; 4 &mdash; loading</li>
+<li><code>EmptyState</code> &mdash; 0 projects</li>
+</ul></li></ul></div>
+
+<div class="hcard"><p class="t">Project creation</p>
+<ul class="tree"><li><code>ProjectCreationModal</code>
+<ul>
+<li><code>NameInput</code></li>
+<li><code>DescriptionInput</code></li>
+<li><code>CreateButton</code></li>
+</ul></li></ul></div>
+
+<div class="hcard"><p class="t">Project detail</p>
+<ul class="tree"><li><code>ProjectDetailLayout</code>
+<ul>
+<li><code>ProjectHeader</code> &mdash; summary, status</li>
+<li><code>LifecycleLog</code> &mdash; corner toast log</li>
+<li><code>ActionBar</code>
+<ul><li><code>CopyPromptButton</code>, <code>RefreshMemoryButton</code></li></ul></li>
+<li><code>TabBar</code>
+<ul>
+<li><code>OverviewTab</code> &rarr; 4&times; <code>MemoryUnitList</code> + <code>CaptureForm</code></li>
+<li><code>AskTab</code> &rarr; <code>QuestionInput</code>, <code>ReasoningChainBox</code></li>
+<li><code>MemoryViewerTab</code> &rarr; <code>MemoryUnitTable</code></li>
+<li><code>TimelineTab</code> &rarr; <code>TimelineFeed</code></li>
+<li><code>GraphTab</code> &rarr; <code>GraphEmbed</code></li>
+</ul></li>
+</ul></li></ul></div>
+
+<div class="hcard"><p class="t">Settings</p>
+<ul class="tree"><li><code>SettingsScreen</code>
+<ul>
+<li><code>ExtensionTokenCard</code></li>
+<li><code>SignOutButton</code></li>
+</ul></li></ul></div>
+
+<div class="hcard"><p class="t">Extension popup</p>
+<ul class="tree"><li><code>ExtensionPopup</code> &mdash; separate bundle
+<ul>
+<li><code>ProjectPicker</code></li>
+<li><code>SourceTagDropdown</code></li>
+<li><code>CaptureButton</code></li>
+<li><code>CopyPromptButton</code></li>
+<li><code>LifecycleToast</code></li>
+</ul></li></ul></div>
+
+</div>

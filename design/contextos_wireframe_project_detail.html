@@ -1,0 +1,92 @@
+<h2 style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);">Interactive low fidelity wireframe of the project detail page across its five tabs, with device and state toggles</h2>
+<style>
+.wfbox{border:1px dashed var(--color-border-secondary);border-radius:6px;padding:10px;}
+.wfline{height:8px;background:var(--color-background-secondary);border-radius:2px;margin:6px 0;}
+.wflabel{font-family:var(--font-mono);font-size:10px;color:var(--color-text-tertiary);display:block;margin-bottom:4px;}
+.seg button.active{background:var(--color-background-info);color:var(--color-text-info);border-color:var(--color-border-info);}
+.tabbtn{font-size:12px;padding:6px 10px;border:none;border-bottom:2px solid transparent;background:none;border-radius:0;color:var(--color-text-secondary);cursor:pointer;}
+.tabbtn.active{border-bottom:2px solid var(--color-text-info);color:var(--color-text-info);}
+</style>
+<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+<div class="seg" id="device-seg" style="display:flex;gap:4px;"></div>
+<div class="seg" id="mode-seg" style="display:flex;gap:4px;"></div>
+</div>
+<div id="canvas" style="background:var(--color-background-secondary);border-radius:var(--border-radius-lg);padding:20px;display:flex;justify-content:center;"></div>
+<script>
+const st={device:'desktop',tab:'overview',mode:'populated'};
+function seg(id,opts,key){
+  const el=document.getElementById(id); el.innerHTML='';
+  opts.forEach(o=>{const b=document.createElement('button');b.textContent=o.label;b.style.fontSize='12px';b.style.padding='4px 10px';b.className=st[key]===o.value?'active':'';b.onclick=()=>{st[key]=o.value;render();};el.appendChild(b);});
+}
+function line(w){return '<div class="wfline" style="width:'+w+'"></div>';}
+function card(label,inner){return '<div class="wfbox">'+(label?'<span class="wflabel">'+label+'</span>':'')+inner+'</div>';}
+
+function chrome(){
+  return '<div class="wfbox" style="position:relative;margin-bottom:10px;"><span class="wflabel">project-header</span>'+line('40%')+line('80%')+line('60%')+
+  '<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;"><div style="border:1px solid var(--color-border-secondary);border-radius:6px;padding:4px 10px;font-size:11px;">[ Copy continuation prompt ]</div><div style="border:1px solid var(--color-border-secondary);border-radius:6px;padding:4px 10px;font-size:11px;">[ Refresh memory ]</div></div>'+
+  '<div style="position:absolute;top:8px;right:8px;font-family:var(--font-mono);font-size:9px;color:var(--color-text-tertiary);border:1px dashed var(--color-border-secondary);border-radius:4px;padding:3px 6px;">lifecycle-log: remember() 2 added</div></div>'+
+  '<div style="display:flex;gap:4px;border-bottom:0.5px solid var(--color-border-tertiary);margin-bottom:12px;flex-wrap:wrap;" id="tab-bar"></div>';
+}
+
+function memoryList(label,emptytext){
+  if(st.mode==='loading') return card(label, line('90%')+line('70%')+line('80%'));
+  if(st.mode==='empty') return card(label, '<div style="font-size:11px;color:var(--color-text-tertiary);">'+emptytext+'</div>');
+  let rows='';
+  for(let i=0;i<2;i++) rows+='<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin:6px 0;">'+line('70%')+'<span style="font-size:10px;color:var(--color-text-tertiary);white-space:nowrap;">[archive]</span></div>';
+  return card(label, rows);
+}
+
+function overviewTab(){
+  const cols=st.device==='desktop'?2:1;
+  const lists=[['decisions','No decisions yet'],['tasks','No tasks yet'],['risks','No risks yet'],['goals','No goals yet']];
+  const grid='<div style="display:grid;grid-template-columns:repeat('+cols+',1fr);gap:10px;margin-bottom:10px;">'+lists.map(l=>memoryList(l[0],l[1])).join('')+'</div>';
+  const capture=card('capture-form', line('90%')+line('40%')+'<div style="border:1px solid var(--color-border-secondary);border-radius:6px;padding:4px 10px;font-size:11px;display:inline-block;margin-top:6px;">[ Capture ]</div>');
+  return grid+capture;
+}
+
+function askTab(){
+  const chips='<div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0;">'+['Why did we choose...','What are my blockers?','What changed?'].map(c=>'<div style="border:1px solid var(--color-border-secondary);border-radius:14px;padding:3px 10px;font-size:10px;color:var(--color-text-tertiary);">'+c+'</div>').join('')+'</div>';
+  const input=card('question-input', line('90%'));
+  if(st.mode==='loading') return input+chips+card('answer-panel','<div style="font-size:11px;color:var(--color-text-tertiary);">[ thinking... ]</div>');
+  if(st.mode==='empty') return input+chips;
+  const path='<div style="display:flex;align-items:center;gap:6px;margin-top:8px;flex-wrap:wrap;">'+['Decision','Fact','Technology'].map((n,i)=>(i>0?'<span style="font-size:11px;color:var(--color-text-tertiary);">&rarr;</span>':'')+'<div style="border:1px solid var(--color-border-secondary);border-radius:6px;padding:3px 8px;font-size:10px;">'+n+'</div>').join('')+'</div>';
+  return input+chips+card('answer-panel', line('95%')+line('80%')+path);
+}
+
+function memoryViewerTab(){
+  if(st.mode==='empty') return card('memory-viewer','<div style="font-size:11px;color:var(--color-text-tertiary);">Nothing captured yet</div>');
+  let rows='';
+  for(let i=0;i<4;i++) rows+='<div style="display:grid;grid-template-columns:60px 1fr 70px;gap:8px;align-items:center;margin:6px 0;">'+line('80%')+line('90%')+'<span style="font-size:10px;color:var(--color-text-tertiary);text-align:right;">[archive]</span></div>';
+  return card('memory-viewer (filter / search bar)', rows);
+}
+
+function timelineTab(){
+  if(st.mode==='empty') return card('timeline','<div style="font-size:11px;color:var(--color-text-tertiary);">No activity in this range</div>');
+  let rows='';
+  for(let i=0;i<3;i++) rows+='<div style="display:flex;gap:10px;align-items:center;margin:8px 0;"><span style="font-size:10px;color:var(--color-text-tertiary);white-space:nowrap;">Jun '+(27-i)+'</span>'+line('70%')+'</div>';
+  return card('timeline (date range filter)', rows);
+}
+
+function graphTab(){
+  if(st.mode==='loading') return card('graph-embed','<div style="font-size:11px;color:var(--color-text-tertiary);">[ loading graph... ]</div>');
+  if(st.mode==='empty') return card('graph-embed','<div style="font-size:11px;color:var(--color-text-tertiary);">Add some memory first</div>');
+  return card('graph-embed (Cognee native view)', '<svg width="100%" height="90" viewBox="0 0 300 90"><circle cx="50" cy="45" r="10" fill="none" stroke="var(--color-border-secondary)"/><circle cx="150" cy="20" r="10" fill="none" stroke="var(--color-border-secondary)"/><circle cx="150" cy="70" r="10" fill="none" stroke="var(--color-border-secondary)"/><circle cx="250" cy="45" r="10" fill="none" stroke="var(--color-border-secondary)"/><line x1="60" y1="45" x2="140" y2="20" stroke="var(--color-border-secondary)"/><line x1="60" y1="45" x2="140" y2="70" stroke="var(--color-border-secondary)"/><line x1="160" y1="20" x2="240" y2="45" stroke="var(--color-border-secondary)"/><line x1="160" y1="70" x2="240" y2="45" stroke="var(--color-border-secondary)"/></svg>');
+}
+
+function render(){
+  seg('device-seg',[{label:'Desktop',value:'desktop'},{label:'Mobile',value:'mobile'}],'device');
+  seg('mode-seg',[{label:'Populated',value:'populated'},{label:'Loading',value:'loading'},{label:'Empty',value:'empty'}],'mode');
+  const w=st.device==='desktop'?'620px':'300px';
+  const tabs=[['overview','Overview'],['ask','Ask'],['memory','Memory'],['timeline','Timeline'],['graph','Graph']];
+  let content;
+  if(st.tab==='overview')content=overviewTab();
+  else if(st.tab==='ask')content=askTab();
+  else if(st.tab==='memory')content=memoryViewerTab();
+  else if(st.tab==='timeline')content=timelineTab();
+  else content=graphTab();
+  document.getElementById('canvas').innerHTML='<div style="width:'+w+';">'+chrome()+content+'</div>';
+  const tb=document.getElementById('tab-bar');
+  tabs.forEach(t=>{const b=document.createElement('button');b.textContent=t[1];b.className='tabbtn'+(st.tab===t[0]?' active':'');b.onclick=()=>{st.tab=t[0];render();};tb.appendChild(b);});
+}
+render();
+</script>

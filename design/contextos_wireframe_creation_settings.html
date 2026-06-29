@@ -1,0 +1,34 @@
+<h2 style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);">Wireframe of the project creation modal and the settings screen</h2>
+<style>.seg button.active{background:var(--color-background-info);color:var(--color-text-info);border-color:var(--color-border-info);}</style>
+<div class="seg" id="screen-seg2" style="display:flex;gap:4px;margin-bottom:12px;"></div>
+<div id="canvas2" style="background:var(--color-background-secondary);border-radius:var(--border-radius-lg);padding:20px;display:flex;justify-content:center;"></div>
+<script>
+const st2={screen:'creation'};
+function seg2(){
+  const el=document.getElementById('screen-seg2'); el.innerHTML='';
+  [{label:'Project creation',value:'creation'},{label:'Settings',value:'settings'}].forEach(o=>{
+    const b=document.createElement('button'); b.textContent=o.label; b.style.fontSize='12px'; b.style.padding='4px 10px';
+    b.className=st2.screen===o.value?'active':'';
+    b.onclick=()=>{st2.screen=o.value;render2();}; el.appendChild(b);
+  });
+}
+function line2(w){return '<div style="height:8px;background:var(--color-background-secondary);border-radius:2px;margin:6px 0;width:'+w+';"></div>';}
+
+function creationHTML(){
+  return '<div style="min-height:340px;background:rgba(0,0,0,0.45);border-radius:8px;display:flex;align-items:center;justify-content:center;">'+
+  '<div style="background:var(--color-background-primary);border-radius:var(--border-radius-lg);padding:16px;width:280px;border:0.5px solid var(--color-border-tertiary);">'+
+  '<span style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-tertiary);">modal: project-creation</span>'+
+  '<div style="border:1px dashed var(--color-border-secondary);border-radius:6px;padding:8px;margin-top:8px;"><span style="font-size:10px;color:var(--color-text-tertiary);">name (required)</span>'+line2('100%')+'</div>'+
+  '<div style="border:1px dashed var(--color-border-secondary);border-radius:6px;padding:8px;margin-top:8px;"><span style="font-size:10px;color:var(--color-text-tertiary);">description (optional)</span>'+line2('100%')+'</div>'+
+  '<div style="display:flex;gap:8px;margin-top:10px;justify-content:flex-end;"><div style="border:1px solid var(--color-border-secondary);border-radius:6px;padding:4px 10px;font-size:11px;">[ Cancel ]</div><div style="border:1px solid var(--color-border-secondary);border-radius:6px;padding:4px 10px;font-size:11px;">[ Create ]</div></div>'+
+  '</div></div>';
+}
+function settingsHTML(){
+  return '<div style="width:320px;">'+
+  '<div style="border:1px dashed var(--color-border-secondary);border-radius:6px;padding:10px;margin-bottom:10px;"><span style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-tertiary);">extension-token-card</span>'+line2('80%')+'<div style="border:1px solid var(--color-border-secondary);border-radius:6px;padding:4px 10px;font-size:11px;display:inline-block;margin-top:6px;">[ Regenerate token ]</div></div>'+
+  '<div style="border:1px solid var(--color-border-secondary);border-radius:6px;padding:4px 10px;font-size:11px;display:inline-block;">[ Sign out ]</div>'+
+  '</div>';
+}
+function render2(){ seg2(); document.getElementById('canvas2').innerHTML = st2.screen==='creation'?creationHTML():settingsHTML(); }
+render2();
+</script>

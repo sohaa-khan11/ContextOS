@@ -1,0 +1,42 @@
+<h2 style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);">Wireframe of the Chrome extension popup in its default, after-capture, and pairing states</h2>
+<style>.seg button.active{background:var(--color-background-info);color:var(--color-text-info);border-color:var(--color-border-info);}</style>
+<div class="seg" id="ext-seg" style="display:flex;gap:4px;margin-bottom:12px;"></div>
+<div style="background:var(--color-background-secondary);border-radius:var(--border-radius-lg);padding:20px;display:flex;justify-content:center;">
+<div style="width:300px;">
+<div style="display:flex;align-items:center;gap:6px;background:var(--color-background-tertiary);border-radius:6px 6px 0 0;padding:4px 8px;border:0.5px solid var(--color-border-tertiary);">
+<i class="ti ti-puzzle" style="font-size:14px;color:var(--color-text-tertiary);" aria-hidden="true"></i>
+<span style="font-size:10px;color:var(--color-text-tertiary);font-family:var(--font-mono);">contextos-capture.popup</span>
+</div>
+<div id="ext-canvas" style="border:0.5px solid var(--color-border-tertiary);border-top:none;border-radius:0 0 8px 8px;padding:12px;background:var(--color-background-primary);"></div>
+</div>
+</div>
+<script>
+const st3={mode:'default'};
+function lineE(w){return '<div style="height:8px;background:var(--color-background-secondary);border-radius:2px;margin:6px 0;width:'+w+';"></div>';}
+function seg3(){
+  const el=document.getElementById('ext-seg'); el.innerHTML='';
+  [{label:'Default',value:'default'},{label:'After capture',value:'captured'},{label:'Pairing',value:'pairing'}].forEach(o=>{
+    const b=document.createElement('button'); b.textContent=o.label; b.style.fontSize='12px'; b.style.padding='4px 10px';
+    b.className=st3.mode===o.value?'active':'';
+    b.onclick=()=>{st3.mode=o.value;renderE();}; el.appendChild(b);
+  });
+}
+function defaultHTML(){
+  return '<span style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-tertiary);">project-picker</span>'+
+  '<div style="border:1px solid var(--color-border-secondary);border-radius:6px;padding:6px 8px;font-size:11px;margin:4px 0 10px;">ContextOS hackathon build &#9662;</div>'+
+  '<span style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-tertiary);">source-tag (optional)</span>'+
+  '<div style="border:1px solid var(--color-border-secondary);border-radius:6px;padding:6px 8px;font-size:11px;margin:4px 0 10px;">Gemini &#9662;</div>'+
+  '<div style="border:1px solid var(--color-border-secondary);border-radius:6px;padding:6px;text-align:center;font-size:11px;margin-bottom:6px;">[ Capture selected text ]</div>'+
+  '<div style="border:1px solid var(--color-border-secondary);border-radius:6px;padding:6px;text-align:center;font-size:11px;">[ Copy continuation prompt ]</div>';
+}
+function capturedHTML(){
+  return defaultHTML()+'<div style="margin-top:10px;border:1px dashed var(--color-border-secondary);border-radius:6px;padding:6px 8px;font-family:var(--font-mono);font-size:10px;color:var(--color-text-tertiary);">remember(): 2 decisions, 1 risk added</div>';
+}
+function pairingHTML(){
+  return '<span style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-tertiary);">pairing-token-input</span>'+lineE('100%')+
+  '<div style="border:1px solid var(--color-border-secondary);border-radius:6px;padding:6px;text-align:center;font-size:11px;margin-top:8px;">[ Pair extension ]</div>'+
+  '<div style="font-size:10px;color:var(--color-text-tertiary);margin-top:8px;">Get a token from Settings in the dashboard</div>';
+}
+function renderE(){ seg3(); document.getElementById('ext-canvas').innerHTML = st3.mode==='default'?defaultHTML():st3.mode==='captured'?capturedHTML():pairingHTML(); }
+renderE();
+</script>

@@ -1,0 +1,62 @@
+<h2 style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);">Interactive low fidelity wireframe of the login and dashboard screens with screen, device, and state toggles</h2>
+<style>
+.wfbox{border:1px dashed var(--color-border-secondary);border-radius:6px;padding:10px;}
+.wfline{height:8px;background:var(--color-background-secondary);border-radius:2px;margin:6px 0;}
+.wflabel{font-family:var(--font-mono);font-size:10px;color:var(--color-text-tertiary);display:block;margin-bottom:4px;}
+.seg button.active{background:var(--color-background-info);color:var(--color-text-info);border-color:var(--color-border-info);}
+</style>
+<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+<div class="seg" id="screen-seg" style="display:flex;gap:4px;"></div>
+<div class="seg" id="device-seg" style="display:flex;gap:4px;"></div>
+<div class="seg" id="mode-seg" style="display:flex;gap:4px;"></div>
+</div>
+<div id="canvas" style="background:var(--color-background-secondary);border-radius:var(--border-radius-lg);padding:24px;display:flex;justify-content:center;"></div>
+<script>
+const state={screen:'login',device:'desktop',mode:'populated'};
+function seg(id,opts,key){
+  const el=document.getElementById(id); el.innerHTML='';
+  opts.forEach(o=>{
+    const b=document.createElement('button'); b.textContent=o.label; b.style.fontSize='12px'; b.style.padding='4px 10px';
+    b.className=state[key]===o.value?'active':'';
+    b.onclick=()=>{state[key]=o.value;render();};
+    el.appendChild(b);
+  });
+}
+function line(w){return '<div class="wfline" style="width:'+w+'"></div>';}
+function card(label,inner,extra){return '<div class="wfbox" style="'+(extra||'')+'"><span class="wflabel">'+label+'</span>'+inner+'</div>';}
+
+function loginHTML(){
+  return card('card: login', line('60%')+'<div style="border:1px solid var(--color-border-secondary);border-radius:6px;padding:8px;text-align:center;font-size:12px;color:var(--color-text-secondary);margin-top:10px;">'+(state.mode==='loading'?'[ loading... ]':'[ Enter demo workspace ]')+'</div>','max-width:260px;margin:0 auto;');
+}
+
+function dashboardHTML(){
+  const cols=state.device==='desktop'?3:1;
+  let body='';
+  if(state.mode==='empty'){
+    body=card('empty-state', line('70%')+'<div style="font-size:12px;color:var(--color-text-tertiary);margin:6px 0;">No projects yet</div><div style="border:1px solid var(--color-border-secondary);border-radius:6px;padding:6px;text-align:center;font-size:11px;margin-top:6px;">[ Create your first project ]</div>');
+  } else {
+    const n=4;
+    let cards='';
+    for(let i=0;i<n;i++){
+      if(state.mode==='loading'){
+        cards+=card('skeleton-card', line('80%')+line('50%')+line('40%'));
+      } else {
+        cards+=card('project-card', line('70%')+'<div style="display:flex;gap:10px;font-size:10px;color:var(--color-text-tertiary);margin:6px 0;">tasks: 4 &middot; risks: 1</div>'+line('40%'));
+      }
+    }
+    body='<div style="display:grid;grid-template-columns:repeat('+cols+',1fr);gap:10px;">'+cards+'</div>';
+  }
+  const header='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">'+line('30%')+'<div style="border:1px solid var(--color-border-secondary);border-radius:6px;padding:4px 10px;font-size:11px;white-space:nowrap;">[ + New project ]</div></div>';
+  return header+body;
+}
+
+function render(){
+  seg('screen-seg',[{label:'Login',value:'login'},{label:'Dashboard',value:'dashboard'}],'screen');
+  seg('device-seg',[{label:'Desktop',value:'desktop'},{label:'Mobile',value:'mobile'}],'device');
+  document.getElementById('mode-seg').style.display=state.screen==='dashboard'?'flex':'none';
+  if(state.screen==='dashboard')seg('mode-seg',[{label:'Populated',value:'populated'},{label:'Loading',value:'loading'},{label:'Empty',value:'empty'}],'mode');
+  const w=state.device==='desktop'?'600px':'300px';
+  document.getElementById('canvas').innerHTML='<div style="width:'+w+';">'+(state.screen==='login'?loginHTML():dashboardHTML())+'</div>';
+}
+render();
+</script>

@@ -1,0 +1,107 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+}
+
+:root, .dark {
+  /* Premium AI-Native SaaS Theme */
+  --background: #11090a;
+  --foreground: #f3e8e8;
+  
+  --card: #180e10;
+  --card-foreground: #f3e8e8;
+  
+  --popover: #180e10;
+  --popover-foreground: #f3e8e8;
+  
+  --primary: #ff4d5e;
+  --primary-foreground: #ffffff;
+  
+  --secondary: #261619;
+  --secondary-foreground: #ffebec;
+  
+  --muted: #261619;
+  --muted-foreground: #8f7b80;
+  
+  --accent: #261619;
+  --accent-foreground: #ff4d5e;
+  
+  --destructive: #ff4d5e;
+  --destructive-foreground: #ffffff;
+  
+  --border: #2c1a1e;
+  --input: #261619;
+  --ring: rgba(255, 77, 94, 0.4);
+  
+  --radius: 12px;
+}
+
+@layer base {
+  * {
+    @apply border-border selection:bg-primary/20 selection:text-primary;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
+}
+
+@layer utilities {
+  .premium-shadow {
+    box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.5);
+  }
+  
+  .glow-border {
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  }
+  
+  .text-glow {
+    text-shadow: 0 0 12px rgba(255, 77, 94, 0.5);
+  }
+}
+
+/* Custom minimal scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--muted);
+  border-radius: 8px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border);
+}
