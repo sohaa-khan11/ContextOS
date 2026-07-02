@@ -74,10 +74,21 @@ async def recall_query(project_id: str, query: str) -> dict:
         "path": path_results
     }
 async def improve_dataset(project_id: str) -> None:
-    pass
+    dataset_name = f"ctxos_{project_id}"
+    try:
+        await cognee.improve(dataset_name=dataset_name)
+    except Exception as e:
+        raise RuntimeError(f"Cognee improve failed: {e}")
 
 async def forget_dataset_or_node(project_id: str, data_id: str = None) -> None:
-    pass
+    dataset_name = f"ctxos_{project_id}"
+    try:
+        if data_id:
+            await cognee.forget(dataset_name=dataset_name, data_id=data_id)
+        else:
+            await cognee.forget(dataset_name=dataset_name)
+    except Exception as e:
+        raise RuntimeError(f"Cognee forget failed: {e}")
 
 async def get_dataset_status(project_id: str) -> str:
     return "DATASET_PROCESSING_COMPLETED"

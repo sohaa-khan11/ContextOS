@@ -117,10 +117,48 @@ async def recall(req: RecallRequest):
     }
 @app.post("/memory/recall/canned")
 async def recall_canned(req: dict): return {"items": []}
+class ImproveRequest(BaseModel):
+    project_id: str
+
+class ForgetRequest(BaseModel):
+    project_id: str
+    node_id: Optional[str] = None
+    wipe_project: Optional[bool] = False
+
 @app.post("/memory/improve")
-async def improve(req: dict): return {"improved": True}
+async def improve(req: ImproveRequest):
+    if not req.project_id or not req.project_id.strip():
+        raise HTTPException(status_code=400, detail="Invalid project ID")
+        
+    logger.info(f"Improve Started for project {req.project_id}")
+    try:
+        await cognee_client.improve_dataset(req.project_id)
+        logger.info(f"Improve Completed for project {req.project_id}")
+        return {"improved": True, "metadata": {"project_id": req.project_id, "status": "success"}}
+    except Exception as e:
+        logger.error(f"Cognee failure during improve: {e}")
+        raise HTTPException(status_code=500, detail=f"Cognee improve failed: {str(e)}")
+
 @app.post("/memory/forget")
-async def forget(req: dict): return {"forgotten": True}
+async def forget(req: ForgetRequest):
+    if not req.project_id or not req.project_id.strip():
+        raise HTTPException(status_code=400, detail="Invalid project ID")
+        
+    logger.info(f"Forget Requested for project {req.project_id}")
+    try:
+        if req.wipe_project or not req.node_id:
+            await cognee_client.forget_dataset_or_node(req.project_id)
+            logger.info(f"Memory Deleted: Entire dataset ctxos_{req.project_id}")
+            logger.info("Metadata Updated")
+            return {"forgotten": True, "type": "dataset"}
+        else:
+            await cognee_client.forget_dataset_or_node(req.project_id, data_id=req.node_id)
+            logger.info(f"Memory Deleted: Node {req.node_id}")
+            logger.info("Metadata Updated")
+            return {"forgotten": True, "type": "node", "node_id": req.node_id}
+    except Exception as e:
+        logger.error(f"Cognee failure during forget: {e}")
+        raise HTTPException(status_code=500, detail=f"Cognee forget failed: {str(e)}")
 @app.get("/memory/status/{project_id}")
 async def get_status(project_id: str): return {"status": "DATASET_PROCESSING_COMPLETED"}
 @app.post("/memory/continuation-prompt")
