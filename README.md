@@ -163,18 +163,6 @@ ContextOS explicitly avoids traditional Vector Database RAG (Retrieval-Augmented
 - **Persistent Memory Integration**: Cognee allows us to create isolated datasets (`ctxos_project_id`) that act as long-term, self-improving memory banks.
 - **Self-Improvement**: By leveraging Cognee's `improve()` pipeline, our knowledge graph actually gets smarter over time, merging conflicting facts and strengthening relationships without manual intervention.
 
-## Demo Flow
-
-For hackathon judges, follow this sequence:
-1. Open the 3D Dashboard (`localhost:3000`). Create a new project called "ContextOS Demo".
-2. Open `chatgpt.com`. The extension icon will light up.
-3. Ask ChatGPT: *"What is the best way to handle auth in Next.js? Give me 3 options and pick one."*
-4. Wait for the response. Watch the **`🧠 Memory Suggestion`** indicator appear on the page!
-5. Click it, review the extracted architecture decision, and hit **Save**.
-6. Open the extension popup. You'll see the "Universal Handoff" UI.
-7. Click **Continue Project**. It will generate the prompt and copy it.
-8. Click the **Claude** destination button. It will open a new tab to `claude.ai`.
-9. Paste the clipboard into Claude and watch it instantly understand the exact auth decision you just made in ChatGPT!
 
 ## Future Work
 - **Native IDE Integrations**: Bring the suggestion indicator directly into VSCode/Cursor editors.
