@@ -4,3 +4,7 @@ cognee
 google-generativeai
 groq
 pydantic
+python-dotenv
+supabase
+pytest
+httpx
