@@ -267,7 +267,7 @@ async def continuation_prompt(req: dict):
 async def get_graph(project_id: str):
     try:
         # Use INSIGHTS to get graph triples
-        res = await cognee_client.recall_query(project_id, "project context decisions risks tasks", query_type="INSIGHTS")
+        res = await cognee_client.recall_query(project_id, "project context decisions risks tasks")
         # Format for frontend
         nodes = []
         edges = []

@@ -1,5 +1,6 @@
 # ContextOS
 
+![ContextOS Hero](README-assets/hero.png)
 ContextOS is a proactive, ambient memory layer that transforms how you interact with AI. It acts as an intelligent bridge across platforms—seamlessly tracking your project context, building an evolving knowledge graph, and allowing you to instantly hand off your entire project state to any AI assistant anywhere on the web.
 
 ## The Problem
@@ -150,11 +151,9 @@ PYTHON_SERVICE_URL=http://localhost:8000
 
 ## Screenshots
 
-> *[Placeholder: Dashboard]*
-> *[Placeholder: Knowledge Graph]*
-> *[Placeholder: Extension]*
-> *[Placeholder: Continue Anywhere]*
-> *[Placeholder: Memory Suggestions]*
+> ![Project Workspace](README-assets/project-workspace.png)
+> ![Save Memory](README-assets/save-memory.png)
+> ![Continue Anywhere](README-assets/continue-anywhere.png)
 
 ## Why Cognee?
 
