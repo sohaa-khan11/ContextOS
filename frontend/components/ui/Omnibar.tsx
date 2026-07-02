@@ -3,39 +3,64 @@
 import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Sparkles, Command, ArrowRight, Activity, Zap, Plus, Search } from "lucide-react";
+import { useParams } from "next/navigation";
 
 export function Omnibar() {
+  const params = useParams();
+  const projectId = params.id as string;
   const [mode, setMode] = useState<"ask" | "capture">("ask");
   const [query, setQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
   const [showResult, setShowResult] = useState(false);
+  const [resultText, setResultText] = useState("");
   const formRef = useRef<HTMLFormElement>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!query.trim()) return;
+    if (!query.trim() || !projectId) return;
     
     if (mode === "ask") {
       setIsSearching(true);
       setShowResult(false);
       
-      // Simulate dispatching event to LifecycleLog and SpatialEngine
-      document.dispatchEvent(new CustomEvent('lifecycle-log', { detail: { action: 'recall()', message: 'executing graph-completion search' } }));
+      document.dispatchEvent(new CustomEvent('lifecycle-log', { detail: { action: 'recall()', message: `executing search: ${query}` } }));
       
-      setTimeout(() => {
-        setIsSearching(false);
-        setShowResult(true);
-      }, 2000);
+      try {
+          const res = await fetch(`/api/projects/${projectId}/recall`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ query })
+          });
+          const data = await res.json();
+          setResultText(data.answer || "No relevant context found.");
+      } catch (err) {
+          setResultText("Error retrieving context.");
+      }
+      
+      setIsSearching(false);
+      setShowResult(true);
     } else {
       // Capture mode
       setIsSearching(true);
       document.dispatchEvent(new CustomEvent('lifecycle-log', { detail: { action: 'remember()', message: 'ingesting unstructured context' } }));
       
-      setTimeout(() => {
-        setIsSearching(false);
-        setQuery("");
-        document.dispatchEvent(new CustomEvent('lifecycle-log', { detail: { action: 'remember()', message: 'added 2 facts, 1 decision' } }));
-      }, 1500);
+      try {
+          const res = await fetch(`/api/extension/capture`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ project_id: projectId, text: query, source: 'omnibar' })
+          });
+          const data = await res.json();
+          document.dispatchEvent(new CustomEvent('lifecycle-log', { detail: { action: 'remember()', message: data.summary || 'context captured successfully' } }));
+          
+          // Trigger memory refresh event
+          document.dispatchEvent(new CustomEvent('memory-updated'));
+      } catch (err) {
+          document.dispatchEvent(new CustomEvent('lifecycle-log', { detail: { action: 'error', message: 'capture failed' } }));
+      }
+      
+      setIsSearching(false);
+      setQuery("");
     }
   };
 
@@ -64,7 +89,7 @@ export function Omnibar() {
                   <h3 className="text-sm font-mono tracking-widest uppercase text-white/50">Memory Found</h3>
                 </div>
                 <p className="text-xl text-white/90 leading-relaxed font-light">
-                  We chose <strong className="text-primary font-medium drop-shadow-[0_0_8px_rgba(255,77,103,0.5)]">FastAPI</strong> because we needed async support and fast prototyping speed for a 7-day build.
+                  {resultText}
                 </p>
                 
                 {/* Reasoning Chain Path */}

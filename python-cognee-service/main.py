@@ -116,7 +116,36 @@ async def recall(req: RecallRequest):
         }
     }
 @app.post("/memory/recall/canned")
-async def recall_canned(req: dict): return {"items": []}
+async def recall_canned(req: dict):
+    project_id = req.get("project_id")
+    canned_type = req.get("type", "summary")
+    
+    if not project_id:
+        raise HTTPException(status_code=400, detail="Missing project_id")
+        
+    try:
+        if canned_type == "summary":
+            res = await cognee_client.recall_query(project_id, "Summarize this project's current state.")
+            return {"summary": res["answer"]}
+        elif canned_type == "decisions":
+            res = await cognee_client.recall_query(project_id, "List all decisions for this project")
+            return {"decisions": [{"type": "Decision", "content": res["answer"]}]}
+        elif canned_type == "tasks":
+            res = await cognee_client.recall_query(project_id, "List all open tasks")
+            return {"tasks": [{"type": "Task", "content": res["answer"]}]}
+        elif canned_type == "risks":
+            res = await cognee_client.recall_query(project_id, "List all open risks")
+            return {"risks": [{"type": "Risk", "content": res["answer"]}]}
+        elif canned_type == "all":
+            # For Memory Viewer
+            res = await cognee_client.recall_query(project_id, "List all memories")
+            return {"items": [{"type": "Fact", "content": res["answer"]}]}
+        else:
+            return {"items": []}
+    except Exception as e:
+        logger.error(f"Failed canned recall: {e}")
+        return {"items": [], "summary": "Error fetching data"}
+
 class ImproveRequest(BaseModel):
     project_id: str
 
@@ -159,9 +188,52 @@ async def forget(req: ForgetRequest):
     except Exception as e:
         logger.error(f"Cognee failure during forget: {e}")
         raise HTTPException(status_code=500, detail=f"Cognee forget failed: {str(e)}")
+
 @app.get("/memory/status/{project_id}")
-async def get_status(project_id: str): return {"status": "DATASET_PROCESSING_COMPLETED"}
+async def get_status(project_id: str): 
+    try:
+        status = await cognee_client.get_dataset_status(project_id)
+        return {"status": status}
+    except Exception as e:
+        return {"status": "UNKNOWN", "error": str(e)}
+
 @app.post("/memory/continuation-prompt")
-async def continuation_prompt(req: dict): return {"prompt": "mock prompt"}
+async def continuation_prompt(req: dict): 
+    project_id = req.get("project_id")
+    if not project_id:
+        raise HTTPException(status_code=400, detail="Missing project_id")
+        
+    try:
+        # recall current project state
+        summary = await cognee_client.recall_query(project_id, "current project summary goals decisions risks tasks")
+        
+        # We would use gemini here to format the prompt. For simplicity, just format it manually or use Gemini
+        import gemini_client
+        prompt = await gemini_client.generate_continuation_prompt(summary["answer"])
+        return {"prompt": prompt}
+    except Exception as e:
+        logger.error(f"Failed to generate continuation prompt: {e}")
+        return {"prompt": "Failed to generate context.", "error": str(e)}
+
+@app.get("/memory/graph/{project_id}")
+async def get_graph(project_id: str):
+    try:
+        # Use INSIGHTS to get graph triples
+        res = await cognee_client.recall_query(project_id, "project context decisions risks tasks", query_type="INSIGHTS")
+        # Format for frontend
+        nodes = []
+        edges = []
+        # INSIGHTS returns triples: [source, edge, target]
+        for idx, triple in enumerate(res.get("path", [])):
+            if len(triple) >= 3:
+                src, edge, tgt = triple
+                nodes.append({"id": src.get("id", f"s{idx}"), "label": src.get("name", "Node"), "type": "context"})
+                nodes.append({"id": tgt.get("id", f"t{idx}"), "label": tgt.get("name", "Node"), "type": "context"})
+                edges.append({"source": src.get("id", f"s{idx}"), "target": tgt.get("id", f"t{idx}")})
+        return {"nodes": nodes, "edges": edges}
+    except Exception as e:
+        logger.error(f"Failed to fetch graph: {e}")
+        return {"nodes": [], "edges": []}
+
 @app.get("/health")
 async def health(): return {"status": "ok"}

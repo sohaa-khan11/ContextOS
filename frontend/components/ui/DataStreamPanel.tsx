@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { X, Network, AlertTriangle, CheckSquare } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useParams } from "next/navigation";
 
 type DataItem = {
   id: string;
@@ -10,22 +11,57 @@ type DataItem = {
   content: string;
 };
 
-const INITIAL_DATA: DataItem[] = [
-  { id: "d1", type: "decision", content: "Chose FastAPI for the backend architecture." },
-  { id: "d2", type: "decision", content: "Use WebGL / Three.js for memory visualization." },
-  { id: "r1", type: "risk", content: "WebGL performance on mobile Safari." },
-  { id: "t1", type: "task", content: "Implement Cognee forget() lifecycle endpoint." },
-];
-
 export function DataStreamPanel() {
-  const [items, setItems] = useState<DataItem[]>(INITIAL_DATA);
+  const params = useParams();
+  const projectId = params.id as string;
+  const [items, setItems] = useState<DataItem[]>([]);
   const [activeTab, setActiveTab] = useState<"decision" | "risk" | "task">("decision");
+  const [isLoading, setIsLoading] = useState(true);
 
-  const handleArchive = (id: string, type: string) => {
+  useEffect(() => {
+      const fetchData = async () => {
+          if (!projectId) return;
+          setIsLoading(true);
+          try {
+              const res = await fetch(`/api/projects/${projectId}`);
+              const data = await res.json();
+              if (data && data.decisions) {
+                  // format items
+                  const formatted = [
+                      ...(data.decisions || []).map((d: any, i: number) => ({ id: `d${i}`, type: 'decision', content: d.content || d })),
+                      ...(data.tasks || []).map((t: any, i: number) => ({ id: `t${i}`, type: 'task', content: t.content || t })),
+                      ...(data.risks || []).map((r: any, i: number) => ({ id: `r${i}`, type: 'risk', content: r.content || r }))
+                  ];
+                  setItems(formatted);
+              }
+          } catch (e) {
+              console.error(e);
+          } finally {
+              setIsLoading(false);
+          }
+      };
+      fetchData();
+      
+      const onMemoryUpdated = () => fetchData();
+      document.addEventListener('memory-updated', onMemoryUpdated);
+      return () => document.removeEventListener('memory-updated', onMemoryUpdated);
+  }, [projectId]);
+
+  const handleArchive = async (id: string, type: string) => {
     // Fire the forget lifecycle event for the HUD log
     document.dispatchEvent(new CustomEvent('lifecycle-log', { 
       detail: { action: 'forget()', message: `archived ${type} node ${id}` } 
     }));
+    
+    try {
+        await fetch(`/api/projects/${projectId}/forget`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ node_id: id })
+        });
+    } catch (e) {
+        console.error("Failed to forget node", e);
+    }
     
     // Remove from UI
     setItems(items.filter(item => item.id !== id));

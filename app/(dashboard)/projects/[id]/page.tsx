@@ -16,34 +16,57 @@ export default function ProjectMemoryInterface({
   const router = useRouter();
   const [isMounted, setIsMounted] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [projectName, setProjectName] = useState("Loading...");
   
-  // Mock data mapping
-  const projects: Record<string, string> = {
-    "1": "ContextOS Core Build",
-    "2": "Marketing Strategy",
-    "3": "Q3 Fundraising"
-  };
-  
-  const projectName = projects[resolvedParams.id] || "Unknown Memory Core";
+  const projectId = resolvedParams.id;
 
   useEffect(() => {
-    // Delay mounting the HTML HUD slightly to sync with the camera arriving in the 3D scene
+    // Fetch project
+    fetch(`/api/projects/${projectId}`)
+      .then(res => res.json())
+      .then(data => {
+          if (data.name) setProjectName(data.name);
+          else setProjectName("Unknown Memory Core");
+      })
+      .catch(() => setProjectName("Unknown Memory Core"));
+
     const timer = setTimeout(() => setIsMounted(true), 1500);
     return () => clearTimeout(timer);
-  }, []);
+  }, [projectId]);
 
-  const handleRefresh = () => {
+  const handleRefresh = async () => {
     document.dispatchEvent(new CustomEvent('lifecycle-log', { 
       detail: { action: 'improve()', message: 'enriching graph structure with new LLM pass' } 
     }));
+    try {
+        await fetch(`/api/projects/${projectId}/improve`, { method: 'POST' });
+        document.dispatchEvent(new CustomEvent('lifecycle-log', { 
+          detail: { action: 'improve()', message: 'graph enrichment complete' } 
+        }));
+    } catch (e) {
+        console.error(e);
+    }
   };
 
-  const handleCopyPrompt = () => {
+  const handleCopyPrompt = async () => {
     setCopied(true);
-    // Simulate generation delay
     document.dispatchEvent(new CustomEvent('lifecycle-log', { 
       detail: { action: 'recall()', message: 'generating structured continuation prompt' } 
     }));
+    
+    try {
+        const res = await fetch(`/api/projects/${projectId}/continuation-prompt`, { method: 'POST' });
+        const data = await res.json();
+        if (data.prompt) {
+            await navigator.clipboard.writeText(data.prompt);
+            document.dispatchEvent(new CustomEvent('lifecycle-log', { 
+              detail: { action: 'success', message: 'prompt copied to clipboard' } 
+            }));
+        }
+    } catch (e) {
+        console.error(e);
+    }
+    
     setTimeout(() => setCopied(false), 2000);
   };
 

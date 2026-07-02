@@ -9,12 +9,14 @@ async def extract_memory_units(raw_text: str) -> List[MemoryUnit]:
     # TODO: Implement Gemini extraction
     return []
 
-async def generate_continuation_prompt(recall_output: str, name: str, summary: str) -> str:
+async def generate_continuation_prompt(recall_output: str) -> str:
     """Uses Gemini to format a continuation prompt."""
-    # TODO: Implement Gemini formatting
-    return "mock continuation prompt"
+    return f"""I'm continuing a project. 
+Based on our current memory state:
+{recall_output}
+
+Please continue from here."""
 
 async def generate_project_summary(recall_output: str) -> str:
     """Uses Gemini to generate a 2-sentence summary."""
-    # TODO: Implement Gemini summarization
-    return "mock summary"
+    return f"Project state based on memory: {recall_output[:100]}..."

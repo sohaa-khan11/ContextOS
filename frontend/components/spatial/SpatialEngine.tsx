@@ -71,39 +71,47 @@ function PremiumNebulaBackground({ isHub }: { isHub: boolean }) {
 }
 
 // --- PROJECT INDEPENDENT KNOWLEDGE GRAPH (Only visible in project) ---
-function ProjectKnowledgeGraph({ color, active, position }: { color: string, active: boolean, position: [number, number, number] }) {
+function ProjectKnowledgeGraph({ color, active, position, projectId }: { color: string, active: boolean, position: [number, number, number], projectId: string }) {
   const group = useRef<THREE.Group>(null!);
   const materialsRef = useRef<THREE.Material[]>([]);
   
-  const nodes = useMemo(() => {
-    return Array.from({ length: 150 }).map((_, i) => {
-      const type = i % 5 === 0 ? "decision" : i % 7 === 0 ? "risk" : "context";
-      const nodeColor = type === "decision" ? "#FF4D67" : type === "risk" ? "#facc15" : color;
-      return {
-        id: i,
-        pos: new THREE.Vector3(
-          (Math.random() - 0.5) * 20,
-          (Math.random() - 0.5) * 20,
-          (Math.random() - 0.5) * 20
-        ),
-        type,
-        color: nodeColor,
-        size: type === "context" ? Math.random() * 0.1 + 0.05 : 0.25
-      };
-    });
-  }, [color]);
+  const [graphData, setGraphData] = useState<{ nodes: any[], edges: any[] }>({ nodes: [], edges: [] });
 
-  const lines = useMemo(() => {
-    const connections = [];
-    for (let i = 0; i < nodes.length; i++) {
-      for (let j = i + 1; j < nodes.length; j++) {
-        if (nodes[i].pos.distanceTo(nodes[j].pos) < 3.5) {
-          connections.push([nodes[i].pos, nodes[j].pos]);
-        }
-      }
+  useEffect(() => {
+    if (active && projectId) {
+      fetch(`/api/projects/${projectId}/graph`)
+        .then(res => res.json())
+        .then(data => {
+            if (data.nodes && data.edges) {
+                // Give nodes random 3D positions if they don't have them
+                const nodesWithPos = data.nodes.map((n: any) => ({
+                    ...n,
+                    pos: new THREE.Vector3(
+                        (Math.random() - 0.5) * 20,
+                        (Math.random() - 0.5) * 20,
+                        (Math.random() - 0.5) * 20
+                    ),
+                    color: n.type === "decision" ? "#FF4D67" : n.type === "risk" ? "#facc15" : color,
+                    size: n.type === "context" ? Math.random() * 0.1 + 0.05 : 0.25
+                }));
+                // Map edges
+                const mappedEdges = data.edges.map((e: any) => {
+                    const src = nodesWithPos.find((n: any) => n.id === e.source);
+                    const tgt = nodesWithPos.find((n: any) => n.id === e.target);
+                    if (src && tgt) {
+                        return [src.pos, tgt.pos];
+                    }
+                    return null;
+                }).filter(Boolean);
+                
+                setGraphData({ nodes: nodesWithPos, edges: mappedEdges });
+            }
+        }).catch(e => console.error("Failed to load graph", e));
     }
-    return connections;
-  }, [nodes]);
+  }, [active, projectId, color]);
+
+  const nodes = graphData.nodes;
+  const lines = graphData.edges;
 
   useEffect(() => {
     materialsRef.current.forEach(mat => {
@@ -267,11 +275,25 @@ function SceneDirector() {
   const isHub = pathname === "/";
   const activeProjectId = pathname.startsWith("/projects/") ? pathname.split("/projects/")[1] : null;
 
-  const projects = [
-    { id: "1", name: "ContextOS Core", nodesCount: 142, position: new THREE.Vector3(-6, 2, -5), color: "#FF4D67" },
-    { id: "2", name: "Marketing Strategy", nodesCount: 56, position: new THREE.Vector3(5, -2, -2), color: "#8b5cf6" },
-    { id: "3", name: "Q3 Fundraising", nodesCount: 230, position: new THREE.Vector3(0, 4, -8), color: "#3b82f6" },
-  ];
+  const [projects, setProjects] = useState<any[]>([]);
+  
+  useEffect(() => {
+    fetch('/api/projects')
+      .then(res => res.json())
+      .then(data => {
+          if (Array.isArray(data)) {
+              // Assign random colors and positions since this is just visualization for now
+              const colors = ["#FF4D67", "#8b5cf6", "#3b82f6", "#10b981", "#f59e0b"];
+              setProjects(data.map((p, i) => ({
+                  ...p,
+                  nodesCount: p.nodesCount || Math.floor(Math.random() * 200 + 50),
+                  position: new THREE.Vector3((i * 5) % 15 - 5, (i * 3) % 10 - 2, (i * -4) % 15 - 2),
+                  color: colors[i % colors.length]
+              })));
+          }
+      })
+      .catch(e => console.error("Failed to load projects", e));
+  }, []);
   
   const activeProject = projects.find(p => p.id === activeProjectId);
   const orbitControlsRef = useRef<any>(null);
@@ -298,40 +320,43 @@ function SceneDirector() {
         }
       });
 
-      // Fly into project
+      // Camera Fly-in
       gsap.to(camera.position, {
         x: activeProject.position.x,
         y: activeProject.position.y,
-        z: activeProject.position.z + 10,
-        duration: 2,
-        ease: "expo.inOut"
-      });
-      gsap.to(camera.rotation, {
-        x: 0, y: 0, z: 0,
-        duration: 2,
-        ease: "expo.inOut"
-      });
-    } else if (isHub) {
-      // Restore FOV gently if it was mid-warp
-      gsap.to(camera, {
-        fov: 45,
+        z: activeProject.position.z + 15,
         duration: 1.5,
-        ease: "power3.inOut",
-        onUpdate: () => camera.updateProjectionMatrix(),
-      });
-
-      // Fly back to Hub wide angle
-      gsap.to(camera.position, {
-        x: 0, y: 0, z: 15,
-        duration: 1.5,
-        ease: "expo.inOut"
+        ease: "power3.inOut"
       });
       
-      // Delay unmounting the project graph so the fade-out completes
-      const timer = setTimeout(() => {
-        setMountedProject(null);
-      }, 1500);
-      return () => clearTimeout(timer);
+      if (orbitControlsRef.current) {
+        gsap.to(orbitControlsRef.current.target, {
+          x: activeProject.position.x,
+          y: activeProject.position.y,
+          z: activeProject.position.z,
+          duration: 1.5,
+          ease: "power3.inOut"
+        });
+      }
+    } else if (isHub) {
+      // Fly back to Hub
+      gsap.to(camera.position, {
+        x: 0,
+        y: 0,
+        z: 15,
+        duration: 1.5,
+        ease: "power3.inOut",
+        onComplete: () => setMountedProject(null)
+      });
+      if (orbitControlsRef.current) {
+        gsap.to(orbitControlsRef.current.target, {
+          x: 0,
+          y: 0,
+          z: 0,
+          duration: 1.5,
+          ease: "power3.inOut"
+        });
+      }
     }
   }, [isHub, activeProject, camera]);
 
@@ -347,6 +372,10 @@ function SceneDirector() {
 
   return (
     <>
+      <ambientLight intensity={0.2} />
+      <directionalLight position={[10, 10, 5]} intensity={1} color="#ffffff" />
+      <directionalLight position={[-10, -10, -5]} intensity={0.5} color="#8b5cf6" />
+      
       <PremiumNebulaBackground isHub={isHub} />
       
       {projects.map(p => (
@@ -370,6 +399,7 @@ function SceneDirector() {
             color={p.color} 
             active={activeProjectId === p.id} 
             position={[p.position.x, p.position.y, p.position.z]} 
+            projectId={p.id}
           />
         );
       })()}

@@ -7,3 +7,4 @@ export const createSupabaseClient = () => {
     return createClient(supabaseUrl, supabaseKey);
 }
 
+export const supabaseAdmin = createSupabaseClient();
