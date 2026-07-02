@@ -45,9 +45,34 @@ async def remember_unit(project_id: str, statement: str) -> None:
         run_in_background=True
     )
 
-async def recall_query(project_id: str, query: str, query_type: str = "GRAPH_COMPLETION"):
-    pass
-
+async def recall_query(project_id: str, query: str) -> dict:
+    dataset_name = f"ctxos_{project_id}"
+    
+    # Pass 1: GRAPH_COMPLETION for textual reasoning answer
+    try:
+        completion_results = await cognee.recall(
+            query_text=query,
+            datasets=[dataset_name],
+            query_type="GRAPH_COMPLETION"
+        )
+    except Exception as e:
+        raise RuntimeError(f"Cognee GRAPH_COMPLETION failed: {e}")
+        
+    # Pass 2: INSIGHTS for raw graph triples (source, edge, target)
+    try:
+        path_results = await cognee.recall(
+            query_text=query,
+            datasets=[dataset_name],
+            query_type="INSIGHTS"
+        )
+    except Exception as e:
+        # If insights fails but completion succeeds, we don't necessarily want to fail the whole request
+        path_results = []
+        
+    return {
+        "answer": completion_results,
+        "path": path_results
+    }
 async def improve_dataset(project_id: str) -> None:
     pass
 

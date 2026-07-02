@@ -76,9 +76,45 @@ async def remember(req: RememberRequest):
         "summary": f"{remembered_count} memory units processed"
     }
 
-# Mock endpoints to satisfy scaffolding
+class RecallRequest(BaseModel):
+    project_id: str
+    question: str
+
 @app.post("/memory/recall")
-async def recall(req: dict): return {"answer": "mock answer", "path": []}
+async def recall(req: RecallRequest):
+    logger.info(f"Recall Request for project {req.project_id}")
+    
+    if not req.question or not req.question.strip():
+        raise HTTPException(status_code=400, detail="Empty query provided")
+        
+    if not req.project_id or not req.project_id.strip():
+        raise HTTPException(status_code=400, detail="Invalid project ID")
+        
+    logger.info(f"Dataset Resolved: ctxos_{req.project_id}")
+    logger.info(f"Cognee Query: {req.question}")
+    
+    try:
+        results = await cognee_client.recall_query(req.project_id, req.question)
+        logger.info("Graph Retrieved")
+    except Exception as e:
+        logger.error(f"Cognee failure during recall: {e}")
+        raise HTTPException(status_code=500, detail=f"Cognee recall failed: {str(e)}")
+        
+    # Validation of results
+    if not results.get("answer"):
+        raise HTTPException(status_code=404, detail="No matching memories found for this query")
+        
+    logger.info("Response Built")
+    logger.info("Success")
+    
+    return {
+        "answer": results["answer"],
+        "path": results["path"],
+        "metadata": {
+            "project_id": req.project_id,
+            "status": "success"
+        }
+    }
 @app.post("/memory/recall/canned")
 async def recall_canned(req: dict): return {"items": []}
 @app.post("/memory/improve")
