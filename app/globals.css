@@ -35,34 +35,34 @@
 }
 
 :root, .dark {
-  /* Premium AI-Native SaaS Theme */
-  --background: #11090a;
-  --foreground: #f3e8e8;
+  /* Premium AI-Native SaaS Theme - Deep Black Canvas */
+  --background: #000000;
+  --foreground: #f5f5f7;
   
-  --card: #180e10;
-  --card-foreground: #f3e8e8;
+  --card: #0a0a0a;
+  --card-foreground: #f5f5f7;
   
-  --popover: #180e10;
-  --popover-foreground: #f3e8e8;
+  --popover: #0a0a0a;
+  --popover-foreground: #f5f5f7;
   
-  --primary: #ff4d5e;
+  --primary: #FF4D67;
   --primary-foreground: #ffffff;
   
-  --secondary: #261619;
-  --secondary-foreground: #ffebec;
+  --secondary: #1a1a1a;
+  --secondary-foreground: #ffffff;
   
-  --muted: #261619;
-  --muted-foreground: #8f7b80;
+  --muted: #111111;
+  --muted-foreground: #888888;
   
-  --accent: #261619;
-  --accent-foreground: #ff4d5e;
+  --accent: #1f1f1f;
+  --accent-foreground: #FF4D67;
   
-  --destructive: #ff4d5e;
+  --destructive: #FF4D67;
   --destructive-foreground: #ffffff;
   
-  --border: #2c1a1e;
-  --input: #261619;
-  --ring: rgba(255, 77, 94, 0.4);
+  --border: #1f1f1f;
+  --input: #111111;
+  --ring: rgba(255, 77, 103, 0.4);
   
   --radius: 12px;
 }
