@@ -1,0 +1,6 @@
+fastapi
+uvicorn
+cognee
+google-generativeai
+groq
+pydantic

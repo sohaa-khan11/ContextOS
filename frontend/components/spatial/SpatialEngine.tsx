@@ -52,9 +52,7 @@ function PremiumNebulaBackground({ isHub }: { isHub: boolean }) {
           <bufferGeometry>
             <bufferAttribute
               attach="attributes-position"
-              count={layer.points.length}
-              array={new Float32Array(layer.points.flatMap(p => [p.x, p.y, p.z]))}
-              itemSize={3}
+              args={[new Float32Array(layer.points.flatMap(p => [p.x, p.y, p.z])), 3]}
             />
           </bufferGeometry>
           <pointsMaterial 

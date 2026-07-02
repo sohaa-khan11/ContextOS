@@ -1,0 +1,4 @@
+export const APP_CONSTANTS = {
+    COGNEE_DATASET_PREFIX: 'ctxos_',
+    DEFAULT_QUERY_TYPE: 'GRAPH_COMPLETION',
+};
