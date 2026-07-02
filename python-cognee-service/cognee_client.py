@@ -84,9 +84,9 @@ async def forget_dataset_or_node(project_id: str, data_id: str = None) -> None:
     dataset_name = f"ctxos_{project_id}"
     try:
         if data_id:
-            await cognee.forget(dataset_name=dataset_name, data_id=data_id)
+            await cognee.forget(dataset=dataset_name, data_id=data_id)
         else:
-            await cognee.forget(dataset_name=dataset_name)
+            await cognee.forget(dataset=dataset_name)
     except Exception as e:
         raise RuntimeError(f"Cognee forget failed: {e}")
 

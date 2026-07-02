@@ -16,14 +16,12 @@ export async function POST(request: Request) {
         }
         
         const pythonUrl = config.pythonService.url();
-        const response = await fetch(`${pythonUrl}/memory/remember`, {
+        const response = await fetch(`${pythonUrl}/memory/analyze`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
                 project_id: body.project_id,
-                raw_text: body.text,
-                source: body.source || 'extension',
-                metadata: body.metadata || null
+                raw_text: body.text
             })
         });
 

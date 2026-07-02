@@ -3,7 +3,7 @@ import { config } from '../utils/config'
 
 export const createSupabaseClient = () => {
     const supabaseUrl = config.supabase.url();
-    const supabaseKey = config.supabase.anonKey();
+    const supabaseKey = config.supabase.serviceRoleKey();
     return createClient(supabaseUrl, supabaseKey);
 }
 

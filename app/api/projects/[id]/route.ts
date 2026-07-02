@@ -24,20 +24,27 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         try {
             const pythonUrl = config.pythonService.url();
             
-            // We can fetch from /memory/recall/canned or standard recall.
-            // But since the architecture mentioned /memory/recall/canned:
-            const cannedRes = await fetch(`${pythonUrl}/memory/recall/canned`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ project_id: id, type: 'summary' })
-            });
-            if (cannedRes.ok) {
-                const cannedData = await cannedRes.json();
-                summary = cannedData.summary || summary;
-                decisions = cannedData.decisions || [];
-                tasks = cannedData.tasks || [];
-                risks = cannedData.risks || [];
-            }
+            const fetchCanned = async (type: string) => {
+                const res = await fetch(`${pythonUrl}/memory/recall/canned`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ project_id: id, type })
+                });
+                return res.ok ? await res.json() : {};
+            };
+
+            const [summaryData, decisionsData, tasksData, risksData] = await Promise.all([
+                fetchCanned('summary'),
+                fetchCanned('decisions'),
+                fetchCanned('tasks'),
+                fetchCanned('risks')
+            ]);
+            
+            summary = summaryData.summary || summary;
+            decisions = decisionsData.decisions || [];
+            tasks = tasksData.tasks || [];
+            risks = risksData.risks || [];
+            
         } catch (e) {
             console.error("Failed to fetch canned data from Python service", e);
         }
@@ -51,5 +58,38 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         });
     } catch (e: any) {
         return NextResponse.json({ error: e.message }, { status: 500 });
+    }
+}
+
+export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params;
+    
+    if (!supabaseAdmin) {
+        return NextResponse.json({ error: 'Supabase admin client not initialized' }, { status: 500 });
+    }
+    
+    try {
+        // 1. Wipe dataset in Python backend (which handles Cognee)
+        const pythonUrl = config.pythonService.url();
+        const forgetRes = await fetch(`${pythonUrl}/memory/forget`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ project_id: id, wipe_project: true })
+        });
+        
+        if (!forgetRes.ok) {
+            const err = await forgetRes.json();
+            throw new Error(err.detail || 'Failed to wipe project memory in Cognee');
+        }
+
+        // 2. Delete project from Supabase
+        // Note: capture_hashes has ON DELETE CASCADE to project_id, so they will be auto-deleted.
+        const { error } = await supabaseAdmin.from('projects').delete().eq('id', id);
+        if (error) throw error;
+        
+        return NextResponse.json({ success: true });
+    } catch (e: any) {
+        console.error("Failed to delete project:", e);
+        return NextResponse.json({ error: e.message || 'Internal Server Error' }, { status: 500 });
     }
 }

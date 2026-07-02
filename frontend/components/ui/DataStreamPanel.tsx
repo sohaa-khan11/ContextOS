@@ -122,9 +122,40 @@ export function DataStreamPanel() {
                   exit={{ opacity: 0, scale: 0.95, filter: "blur(5px)" }}
                   className="group relative p-3 rounded-xl bg-white/5 border border-white/5 hover:border-white/20 hover:bg-white/10 transition-colors"
                 >
-                  <p className="text-sm font-light text-white/80 leading-relaxed pr-6">
-                    {item.content}
-                  </p>
+                  {(() => {
+                    const content = item.content;
+                    const metaMatch = content.match(/\[Captured from: (.*?)\]/);
+                    if (!metaMatch) {
+                      return <p className="text-sm font-light text-white/80 leading-relaxed pr-6">{content}</p>;
+                    }
+                    
+                    const cleanContent = content.replace(/\[Captured from: .*?\]/, '').trim();
+                    const metaStr = metaMatch[1];
+                    const domainMatch = metaStr.match(/domain: ([^\s]+)/);
+                    const timestampMatch = metaStr.match(/timestamp: ([^\s\]]+)/);
+                    
+                    const domain = domainMatch ? domainMatch[1] : 'unknown';
+                    let timeStr = 'recently';
+                    if (timestampMatch) {
+                      try {
+                          timeStr = new Date(timestampMatch[1]).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+                      } catch (e) {}
+                    }
+
+                    return (
+                      <div className="flex flex-col gap-2">
+                        <p className="text-sm font-light text-white/80 leading-relaxed pr-6">{cleanContent}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="px-2 py-0.5 rounded bg-white/5 border border-white/10 text-[9px] font-mono text-white/40 tracking-wider uppercase">
+                            {domain}
+                          </span>
+                          <span className="text-[9px] font-mono text-white/30 tracking-wider uppercase">
+                            {timeStr}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })()}
                   
                   {/* Archive Button - PRD Required forget() trigger */}
                   <button

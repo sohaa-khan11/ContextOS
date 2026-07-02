@@ -15,10 +15,52 @@ class RememberRequest(BaseModel):
     project_id: str
     raw_text: str
     source: Optional[str] = None
+    metadata: Optional[dict] = None
+
+class AnalyzeRequest(BaseModel):
+    project_id: str
+    raw_text: str
 
 @app.on_event("startup")
 async def startup_event():
     await cognee_client.init_cognee()
+
+@app.post("/memory/analyze")
+async def analyze_memory(req: AnalyzeRequest):
+    logger.info(f"Analyze request for project {req.project_id}")
+    
+    # 1. Deduplication Check
+    text_hash = dedup.generate_content_hash(req.raw_text)
+    is_dup = False
+    try:
+        is_dup = dedup.is_duplicate(req.project_id, text_hash)
+    except Exception as e:
+        logger.error(f"Database failure during dup check: {e}")
+    
+    # 2. AI Analysis
+    try:
+        analysis = await groq_client.analyze_memory_content(req.raw_text)
+    except Exception as e:
+        logger.error(f"Analysis failed: {e}")
+        analysis = {"summary": "Failed to analyze", "should_save": False, "importance_score": 0}
+
+    # 3. Related Memories
+    related = []
+    if analysis.get("summary") and not is_dup:
+        try:
+            res = await cognee_client.recall_query(req.project_id, analysis["summary"])
+            if res and res.get("answer"):
+                # We extract the answer as a related memory. In a real system, we'd parse nodes.
+                related.append(res["answer"])
+        except Exception as e:
+            logger.error(f"Recall failed during analysis: {e}")
+
+    return {
+        "is_duplicate": is_dup,
+        "duplicate_time": "previously" if is_dup else None,
+        "analysis": analysis,
+        "related_memories": related
+    }
 
 @app.post("/memory/remember")
 async def remember(req: RememberRequest):
@@ -54,6 +96,12 @@ async def remember(req: RememberRequest):
         for unit in units:
             unit.source = req.source or unit.source
             statement = cognee_client.format_unit_to_statement(unit)
+            
+            if req.metadata:
+                # Embed metadata natively into the statement string so Cognee indexes it
+                meta_str = " ".join([f"{k}: {v}" for k, v in req.metadata.items()])
+                statement += f" [Captured from: {meta_str}]"
+                
             await cognee_client.remember_unit(req.project_id, statement)
             remembered_count += 1
         logger.info(f"Cognee remember successful for {remembered_count} units")
@@ -208,8 +256,8 @@ async def continuation_prompt(req: dict):
         summary = await cognee_client.recall_query(project_id, "current project summary goals decisions risks tasks")
         
         # We would use gemini here to format the prompt. For simplicity, just format it manually or use Gemini
-        import gemini_client
-        prompt = await gemini_client.generate_continuation_prompt(summary["answer"])
+        # (Updated to use groq_client as per consolidation)
+        prompt = await groq_client.generate_continuation_prompt(summary["answer"])
         return {"prompt": prompt}
     except Exception as e:
         logger.error(f"Failed to generate continuation prompt: {e}")
