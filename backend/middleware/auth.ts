@@ -7,6 +7,11 @@ export const validateExtensionToken = async (req: Request) => {
     }
     const token = authHeader.split(' ')[1];
     
+    // DEMO BYPASS
+    if (token === 'mock-token') {
+        return { userId: 'demo-user-id' };
+    }
+    
     const { data, error } = await supabaseAdmin
         .from('extension_tokens')
         .select('user_id, expires_at')

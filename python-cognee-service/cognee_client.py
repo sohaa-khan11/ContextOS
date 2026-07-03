@@ -1,4 +1,5 @@
 import cognee
+from cognee.modules.search.types import SearchType
 from schemas import ContextOSGraph
 from config import config
 from memory_units import MemoryUnit
@@ -53,17 +54,20 @@ async def recall_query(project_id: str, query: str) -> dict:
         completion_results = await cognee.recall(
             query_text=query,
             datasets=[dataset_name],
-            query_type="GRAPH_COMPLETION"
+            query_type=SearchType.GRAPH_COMPLETION
         )
     except Exception as e:
         raise RuntimeError(f"Cognee GRAPH_COMPLETION failed: {e}")
         
     # Pass 2: INSIGHTS for raw graph triples (source, edge, target)
     try:
+        # INSIGHTS is removed, using auto_route instead or TRIPLET_COMPLETION if we need edges
+        # We can just ignore pass 2 and get path from completion_results if possible.
+        # But we'll just not pass query_type to avoid enum errors for non-existent ones.
         path_results = await cognee.recall(
             query_text=query,
             datasets=[dataset_name],
-            query_type="INSIGHTS"
+            query_type=SearchType.TRIPLET_COMPLETION
         )
     except Exception as e:
         # If insights fails but completion succeeds, we don't necessarily want to fail the whole request
