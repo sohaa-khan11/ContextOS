@@ -143,21 +143,29 @@ async def recall(req: RecallRequest):
     
     try:
         results = await cognee_client.recall_query(req.project_id, req.question)
-        logger.info("Graph Retrieved")
+        logger.info("Raw Graph and Semantic Chunks Retrieved")
     except Exception as e:
         logger.error(f"Cognee failure during recall: {e}")
         raise HTTPException(status_code=500, detail=f"Cognee recall failed: {str(e)}")
         
-    # Validation of results
-    if not results.get("answer"):
-        raise HTTPException(status_code=404, detail="No matching memories found for this query")
-        
-    logger.info("Response Built")
+    # Synthesize human-readable answer using Groq
+    try:
+        context_str = f"Raw Memory Context:\n{results.get('answer', '')}"
+        synthesized_answer = await groq_client.synthesize_recall(req.question, context_str)
+        logger.info("Synthesized response Built")
+    except Exception as e:
+        logger.error(f"Groq synthesis failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Groq synthesis failed: {str(e)}")
+    
     logger.info("Success")
     
     return {
-        "answer": results["answer"],
-        "path": results["path"],
+        "summary": synthesized_answer.get("summary"),
+        "reasoning": synthesized_answer.get("reasoning"),
+        "supporting_memories": synthesized_answer.get("supporting_memories", []),
+        "entities": synthesized_answer.get("entities", []),
+        "relationships": synthesized_answer.get("relationships", []),
+        "confidence": synthesized_answer.get("confidence"),
         "metadata": {
             "project_id": req.project_id,
             "status": "success"
@@ -172,22 +180,16 @@ async def recall_canned(req: dict):
         raise HTTPException(status_code=400, detail="Missing project_id")
         
     try:
-        if canned_type == "summary":
-            res = await cognee_client.recall_query(project_id, "Summarize this project's current state.")
-            return {"summary": res["answer"]}
-        elif canned_type == "decisions":
-            res = await cognee_client.recall_query(project_id, "List all decisions for this project")
-            return {"decisions": [{"type": "Decision", "content": res["answer"]}]}
-        elif canned_type == "tasks":
-            res = await cognee_client.recall_query(project_id, "List all open tasks")
-            return {"tasks": [{"type": "Task", "content": res["answer"]}]}
-        elif canned_type == "risks":
-            res = await cognee_client.recall_query(project_id, "List all open risks")
-            return {"risks": [{"type": "Risk", "content": res["answer"]}]}
+        if canned_type == "dashboard_data":
+            # Fast fetch for everything needed by the dashboard panel
+            res = await cognee_client.recall_query(project_id, "project context decisions tasks risks goals")
+            context_str = f"Graph Paths:\n{res['path']}\n\nSemantic Chunks:\n{res['answer']}"
+            dashboard_json = await groq_client.synthesize_dashboard_data(context_str)
+            return dashboard_json
         elif canned_type == "all":
             # For Memory Viewer
             res = await cognee_client.recall_query(project_id, "List all memories")
-            return {"items": [{"type": "Fact", "content": res["answer"]}]}
+            return {"items": [{"type": "Fact", "content": str(res["answer"])}]}
         else:
             return {"items": []}
     except Exception as e:

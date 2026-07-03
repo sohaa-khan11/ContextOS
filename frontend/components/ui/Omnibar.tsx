@@ -13,6 +13,7 @@ export function Omnibar() {
   const [isSearching, setIsSearching] = useState(false);
   const [showResult, setShowResult] = useState(false);
   const [resultText, setResultText] = useState("");
+  const [reasoning, setReasoning] = useState<any>(null);
   const formRef = useRef<HTMLFormElement>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -32,9 +33,15 @@ export function Omnibar() {
               body: JSON.stringify({ query })
           });
           const data = await res.json();
-          setResultText(data.answer || "No relevant context found.");
+          let summary = data.summary;
+          if (!summary && data.reasoning?.rationale) {
+              summary = data.reasoning.rationale;
+          }
+          setResultText(summary || "No relevant context found.");
+          setReasoning(data.reasoning || null);
       } catch (err) {
           setResultText("Error retrieving context.");
+          setReasoning(null);
       }
       
       setIsSearching(false);
@@ -93,23 +100,29 @@ export function Omnibar() {
                 </p>
                 
                 {/* Reasoning Chain Path */}
-                <div className="mt-4 p-4 rounded-xl bg-black/40 border border-white/5">
-                  <div className="text-[10px] uppercase tracking-[0.2em] text-white/30 mb-3 font-semibold">Reasoning Chain</div>
-                  <div className="flex flex-col gap-2">
-                    <div className="flex items-center gap-3">
-                      <div className="w-1.5 h-1.5 rounded-full bg-primary" />
-                      <div className="text-xs text-white/80"><span className="text-white/40 uppercase font-mono mr-2">Decision</span> Chose FastAPI</div>
-                    </div>
-                    <div className="pl-1 border-l border-white/10 ml-[3px] py-1">
-                      <div className="flex items-center gap-3 ml-2">
-                        <div className="w-1.5 h-1.5 rounded-full bg-purple-400" />
-                        <div className="text-xs text-white/80"><span className="text-white/40 uppercase font-mono mr-2">Rationale</span> Needed async support</div>
-                      </div>
+                {reasoning && (
+                  <div className="mt-4 p-4 rounded-xl bg-black/40 border border-white/5">
+                    <div className="text-[10px] uppercase tracking-[0.2em] text-white/30 mb-3 font-semibold">Reasoning Chain</div>
+                    <div className="flex flex-col gap-2">
+                      {reasoning.decision && (
+                        <div className="flex items-center gap-3">
+                          <div className="w-1.5 h-1.5 rounded-full bg-primary" />
+                          <div className="text-xs text-white/80"><span className="text-white/40 uppercase font-mono mr-2">Decision</span> {reasoning.decision}</div>
+                        </div>
+                      )}
+                      {reasoning.rationale && (
+                        <div className={`pl-1 ${reasoning.decision ? 'border-l border-white/10 ml-[3px]' : ''} py-1`}>
+                          <div className={`flex items-center gap-3 ${reasoning.decision ? 'ml-2' : ''}`}>
+                            <div className="w-1.5 h-1.5 rounded-full bg-purple-400" />
+                            <div className="text-xs text-white/80"><span className="text-white/40 uppercase font-mono mr-2">Rationale</span> {reasoning.rationale}</div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
-                </div>
+                )}
 
-                <button onClick={() => { setShowResult(false); setQuery(""); }} className="text-[10px] font-mono uppercase tracking-widest text-white/30 hover:text-white/80 transition-colors pt-2">
+                <button onClick={() => { setShowResult(false); setQuery(""); setReasoning(null); }} className="text-[10px] font-mono uppercase tracking-widest text-white/30 hover:text-white/80 transition-colors pt-2">
                   [ Close HUD ]
                 </button>
               </div>

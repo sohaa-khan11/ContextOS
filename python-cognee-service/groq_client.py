@@ -157,3 +157,76 @@ async def analyze_memory_content(raw_text: str) -> dict:
             "entities": [],
             "should_save": True
         }
+
+SYNTHESIZE_SYSTEM_PROMPT = """
+You are ContextOS, a Universal AI Context Layer. Your goal is to provide polished, human-readable answers based on the retrieved project memory graph.
+
+Use the provided raw graph and semantic context to answer the user's question naturally and fully.
+Base your answer ONLY on the provided context. If the context is empty or lacks information, do not hallucinate an answer.
+
+Structure your response exactly as follows (output ONLY a valid JSON object):
+
+{
+  "summary": "<A direct, natural 1-2 sentence answer to the question>",
+  "reasoning": {
+    "decision": "<Decision made or key insight, if any>",
+    "rationale": "<Explain the reasoning found in the memory, connecting decisions to their rationales>"
+  },
+  "supporting_memories": ["<key fact or task 1>", "<key fact or task 2>"],
+  "entities": ["<entity1>", "<entity2>"],
+  "relationships": ["<Entity1> -> <Entity2>"],
+  "confidence": "<High|Medium|Low based on context clarity>"
+}
+
+Rules:
+- If a field is not applicable, leave it empty or omit it, but still provide the JSON structure.
+- Do not output markdown, only valid JSON.
+"""
+
+async def synthesize_recall(question: str, context: str) -> dict:
+    """Uses Groq to synthesize a fast, polished answer from raw Cognee retrieval data."""
+    try:
+        response = client.chat.completions.create(
+            model="llama-3.1-8b-instant",
+            messages=[
+                {"role": "system", "content": SYNTHESIZE_SYSTEM_PROMPT},
+                {"role": "user", "content": f"Question: {question}\n\nContext Data:\n{context}"}
+            ],
+            response_format={"type": "json_object"}
+        )
+        return json.loads(response.choices[0].message.content)
+    except Exception as e:
+        return {
+            "summary": f"Failed to synthesize context: {str(e)}",
+            "reasoning": None
+        }
+
+DASHBOARD_DATA_SYSTEM_PROMPT = """
+You are a memory parser. Based on the following raw project data, extract the current state into this exact JSON structure:
+{
+  "summary": "<1-2 sentences capturing the overall goal and status>",
+  "decisions": [ {"type": "Decision", "content": "<decision rationale>"} ],
+  "tasks": [ {"type": "Task", "content": "<task description>"} ],
+  "risks": [ {"type": "Risk", "content": "<risk description>"} ]
+}
+Only output valid JSON.
+"""
+
+async def synthesize_dashboard_data(context: str) -> dict:
+    try:
+        response = client.chat.completions.create(
+            model="llama-3.1-8b-instant",
+            messages=[
+                {"role": "system", "content": DASHBOARD_DATA_SYSTEM_PROMPT},
+                {"role": "user", "content": context}
+            ],
+            response_format={"type": "json_object"}
+        )
+        return json.loads(response.choices[0].message.content)
+    except Exception as e:
+        return {
+            "summary": "Error generating dashboard data.",
+            "decisions": [],
+            "tasks": [],
+            "risks": []
+        }

@@ -293,6 +293,15 @@ function SceneDirector() {
           }
       })
       .catch(e => console.error("Failed to load projects", e));
+      
+    const handleProjectDeleted = (e: any) => {
+        setProjects(prev => prev.filter(p => p.id !== e.detail.id));
+    };
+    
+    document.addEventListener('project-deleted', handleProjectDeleted);
+    return () => {
+        document.removeEventListener('project-deleted', handleProjectDeleted);
+    };
   }, []);
   
   const activeProject = projects.find(p => p.id === activeProjectId);

@@ -24,26 +24,19 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         try {
             const pythonUrl = config.pythonService.url();
             
-            const fetchCanned = async (type: string) => {
-                const res = await fetch(`${pythonUrl}/memory/recall/canned`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ project_id: id, type })
-                });
-                return res.ok ? await res.json() : {};
-            };
-
-            const [summaryData, decisionsData, tasksData, risksData] = await Promise.all([
-                fetchCanned('summary'),
-                fetchCanned('decisions'),
-                fetchCanned('tasks'),
-                fetchCanned('risks')
-            ]);
+            const res = await fetch(`${pythonUrl}/memory/recall/canned`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ project_id: id, type: 'dashboard_data' })
+            });
             
-            summary = summaryData.summary || summary;
-            decisions = decisionsData.decisions || [];
-            tasks = tasksData.tasks || [];
-            risks = risksData.risks || [];
+            if (res.ok) {
+                const data = await res.json();
+                summary = data.summary || summary;
+                decisions = data.decisions || [];
+                tasks = data.tasks || [];
+                risks = data.risks || [];
+            }
             
         } catch (e) {
             console.error("Failed to fetch canned data from Python service", e);

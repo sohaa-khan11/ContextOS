@@ -78,6 +78,10 @@ export default function ProjectMemoryInterface({
       detail: { action: 'forget()', message: 'initiating complete project wipe' } 
     }));
     
+    // Optimistic UI update
+    document.dispatchEvent(new CustomEvent('project-deleted', { detail: { id: projectId } }));
+    router.push('/');
+    
     try {
       const res = await fetch(`/api/projects/${projectId}`, { method: 'DELETE' });
       if (!res.ok) {
@@ -88,10 +92,11 @@ export default function ProjectMemoryInterface({
       document.dispatchEvent(new CustomEvent('lifecycle-log', { 
         detail: { action: 'success', message: 'project deleted successfully' } 
       }));
-      router.push('/');
     } catch (e: any) {
       console.error(e);
       alert(`Error deleting project: ${e.message}`);
+      // Rollback optimistic update by refreshing
+      router.refresh();
       setIsDeleting(false);
       setShowDeleteConfirm(false);
     }
