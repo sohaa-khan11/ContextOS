@@ -267,23 +267,17 @@ async def continuation_prompt(req: dict):
 
 @app.get("/memory/graph/{project_id}")
 async def get_graph(project_id: str):
-    try:
-        # Use INSIGHTS to get graph triples
-        res = await cognee_client.recall_query(project_id, "project context decisions risks tasks")
-        # Format for frontend
-        nodes = []
-        edges = []
-        # INSIGHTS returns triples: [source, edge, target]
-        for idx, triple in enumerate(res.get("path", [])):
-            if len(triple) >= 3:
-                src, edge, tgt = triple
-                nodes.append({"id": src.get("id", f"s{idx}"), "label": src.get("name", "Node"), "type": "context"})
-                nodes.append({"id": tgt.get("id", f"t{idx}"), "label": tgt.get("name", "Node"), "type": "context"})
-                edges.append({"source": src.get("id", f"s{idx}"), "target": tgt.get("id", f"t{idx}")})
-        return {"nodes": nodes, "edges": edges}
-    except Exception as e:
-        logger.error(f"Failed to fetch graph: {e}")
-        return {"nodes": [], "edges": []}
+    # Hardcoded test data as requested in STEP 8
+    nodes = [
+        {"id": "A", "label": "Node A", "type": "context"},
+        {"id": "B", "label": "Node B", "type": "decision"},
+        {"id": "C", "label": "Node C", "type": "risk"}
+    ]
+    edges = [
+        {"source": "A", "target": "B", "label": "connects"},
+        {"source": "B", "target": "C", "label": "leads to"}
+    ]
+    return {"nodes": nodes, "edges": edges}
 
 @app.get("/health")
 async def health(): return {"status": "ok"}

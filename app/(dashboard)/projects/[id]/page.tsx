@@ -6,6 +6,7 @@ import { LifecycleLog } from "@frontend/components/ui/LifecycleLog";
 import { DataStreamPanel } from "@frontend/components/ui/DataStreamPanel";
 import { useRouter } from "next/navigation";
 import { Zap, Copy, Check } from "lucide-react";
+import { useGraphStore } from "@frontend/store/useGraphStore";
 
 export default function ProjectMemoryInterface({
   params,
@@ -21,9 +22,13 @@ export default function ProjectMemoryInterface({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   
   const projectId = resolvedParams.id;
+  const { nodes, edges, fetchGraph } = useGraphStore();
 
   useEffect(() => {
-    // Fetch project
+    // Initial fetch to ensure HUD has data
+    fetchGraph(projectId);
+    
+    // Fetch project metadata
     fetch(`/api/projects/${projectId}`)
       .then(res => res.json())
       .then(data => {
@@ -33,8 +38,17 @@ export default function ProjectMemoryInterface({
       .catch(() => setProjectName("Unknown Memory Core"));
 
     const timer = setTimeout(() => setIsMounted(true), 1500);
-    return () => clearTimeout(timer);
-  }, [projectId]);
+    
+    const handleMemoryUpdate = () => {
+        fetchGraph(projectId);
+    };
+    document.addEventListener('memory-updated', handleMemoryUpdate);
+    
+    return () => {
+        clearTimeout(timer);
+        document.removeEventListener('memory-updated', handleMemoryUpdate);
+    };
+  }, [projectId, fetchGraph]);
 
   const handleRefresh = async () => {
     document.dispatchEvent(new CustomEvent('lifecycle-log', { 
@@ -45,6 +59,8 @@ export default function ProjectMemoryInterface({
         document.dispatchEvent(new CustomEvent('lifecycle-log', { 
           detail: { action: 'improve()', message: 'graph enrichment complete' } 
         }));
+        // Trigger memory refresh event so graph and HUD counters update
+        document.dispatchEvent(new CustomEvent('memory-updated'));
     } catch (e) {
         console.error(e);
     }
@@ -101,6 +117,8 @@ export default function ProjectMemoryInterface({
       setShowDeleteConfirm(false);
     }
   };
+
+  console.log(`[VERIFY HUD] Rendering HUD for ${projectId} | nodeCount: ${nodes.length}, edgeCount: ${edges.length}`);
 
   return (
     <div className={`w-full h-full absolute inset-0 overflow-hidden pointer-events-none transition-opacity duration-1000 ${isMounted ? 'opacity-100' : 'opacity-0'}`}>
@@ -178,8 +196,8 @@ export default function ProjectMemoryInterface({
         )}
 
         <div className="mt-4 flex gap-6">
-          <div className="text-xs font-mono text-white/40 uppercase tracking-widest"><strong className="text-white">---</strong> Nodes</div>
-          <div className="text-xs font-mono text-white/40 uppercase tracking-widest"><strong className="text-white">---</strong> Edges</div>
+          <div className="text-xs font-mono text-white/40 uppercase tracking-widest"><strong className="text-white">{nodes.length.toString().padStart(3, '0')}</strong> Nodes</div>
+          <div className="text-xs font-mono text-white/40 uppercase tracking-widest"><strong className="text-white">{edges.length.toString().padStart(3, '0')}</strong> Edges</div>
         </div>
       </div>
       
@@ -189,17 +207,17 @@ export default function ProjectMemoryInterface({
       {/* Bottom Left: Terminal Action Log */}
       <LifecycleLog />
 
+      {/* Command Node HUD (Omnibar) fixed to bottom center */}
+      <div className="absolute bottom-12 left-1/2 -translate-x-1/2 z-50 w-full max-w-2xl px-6 pointer-events-auto">
+        <Omnibar />
+      </div>
+
       {/* Controls Hint HUD */}
       <div className="absolute bottom-12 right-12 z-10 text-right pointer-events-none">
         <div className="text-[10px] font-mono tracking-[0.2em] text-white/30 uppercase mb-2">Navigation Controls</div>
         <div className="text-xs text-white/60">Orbit: Left Click + Drag</div>
         <div className="text-xs text-white/60">Zoom: Scroll</div>
         <div className="text-xs text-white/60">Pan: Right Click + Drag</div>
-      </div>
-
-      {/* Command Node HUD (Omnibar) fixed to bottom center */}
-      <div className="absolute bottom-12 left-1/2 -translate-x-1/2 z-50 w-full max-w-2xl px-6 pointer-events-auto">
-        <Omnibar />
       </div>
     </div>
   );

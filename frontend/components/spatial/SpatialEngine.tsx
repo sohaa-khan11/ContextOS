@@ -7,6 +7,7 @@ import { Html, Line, OrbitControls } from "@react-three/drei";
 import * as THREE from "three";
 import { usePathname, useRouter } from "next/navigation";
 import gsap from "gsap";
+import { useGraphStore } from "@frontend/store/useGraphStore";
 
 // --- PREMIUM NEBULA BACKGROUND (Hub Atmosphere) ---
 function PremiumNebulaBackground({ isHub }: { isHub: boolean }) {
@@ -74,62 +75,47 @@ function PremiumNebulaBackground({ isHub }: { isHub: boolean }) {
 function ProjectKnowledgeGraph({ color, active, position, projectId }: { color: string, active: boolean, position: [number, number, number], projectId: string }) {
   const group = useRef<THREE.Group>(null!);
   const materialsRef = useRef<THREE.Material[]>([]);
+  const { scene, camera } = useThree();
   
-  const [graphData, setGraphData] = useState<{ nodes: any[], edges: any[] }>({ nodes: [], edges: [] });
+  const { nodes: rawNodes, edges: rawEdges, fetchGraph, projectId: storeProjectId } = useGraphStore();
 
   useEffect(() => {
-    if (active && projectId) {
-      fetch(`/api/projects/${projectId}/graph`)
-        .then(res => res.json())
-        .then(data => {
-            if (data.nodes && data.edges) {
-                // Give nodes random 3D positions if they don't have them
-                const nodesWithPos = data.nodes.map((n: any) => ({
-                    ...n,
-                    pos: new THREE.Vector3(
-                        (Math.random() - 0.5) * 20,
-                        (Math.random() - 0.5) * 20,
-                        (Math.random() - 0.5) * 20
-                    ),
-                    color: n.type === "decision" ? "#FF4D67" : n.type === "risk" ? "#facc15" : color,
-                    size: n.type === "context" ? Math.random() * 0.1 + 0.05 : 0.25
-                }));
-                // Map edges
-                const mappedEdges = data.edges.map((e: any) => {
-                    const src = nodesWithPos.find((n: any) => n.id === e.source);
-                    const tgt = nodesWithPos.find((n: any) => n.id === e.target);
-                    if (src && tgt) {
-                        return [src.pos, tgt.pos];
-                    }
-                    return null;
-                }).filter(Boolean);
-                
-                setGraphData({ nodes: nodesWithPos, edges: mappedEdges });
-            }
-        }).catch(e => console.error("Failed to load graph", e));
+    if (active && projectId && storeProjectId !== projectId) {
+        fetchGraph(projectId);
     }
-  }, [active, projectId, color]);
+  }, [active, projectId, storeProjectId, fetchGraph]);
 
-  const nodes = graphData.nodes;
-  const lines = graphData.edges;
-
-  useEffect(() => {
-    materialsRef.current.forEach(mat => {
-      if (mat) mat.opacity = 0;
+  const { nodes, lines } = useMemo(() => {
+    if (!rawNodes || !rawEdges) return { nodes: [], lines: [] };
+    
+    // We deterministically seed position using id hash to avoid jumping if node re-renders
+    // But for now, we just assign random positions as before, just seeded once per graph update
+    const nodesWithPos = rawNodes.map((n: any) => {
+        const pos = new THREE.Vector3(
+            (Math.random() - 0.5) * 20,
+            (Math.random() - 0.5) * 20,
+            (Math.random() - 0.5) * 20
+        );
+        return { 
+            ...n, 
+            pos, 
+            color: n.type === "decision" ? "#FF4D67" : n.type === "risk" ? "#facc15" : color,
+            size: n.type === "context" ? Math.random() * 0.1 + 0.05 : 0.25
+        };
     });
-    if (group.current) group.current.visible = false;
-  }, []);
+    
+    const validEdges = rawEdges.map((e: any) => {
+        const src = nodesWithPos.find((n: any) => n.id === e.source);
+        const tgt = nodesWithPos.find((n: any) => n.id === e.target);
+        return src && tgt ? [src.pos, tgt.pos] : null;
+    }).filter(Boolean);
+    
+    return { nodes: nodesWithPos, lines: validEdges };
+  }, [rawNodes, rawEdges, color]);
 
   useFrame((state) => {
-    if (group.current) {
-      if (active) group.current.rotation.y += 0.002;
-      
-      const targetOpacity = active ? 1 : 0;
-      materialsRef.current.forEach(mat => {
-        if (mat) mat.opacity = THREE.MathUtils.lerp(mat.opacity, targetOpacity * (mat.userData.baseOpacity || 0.8), 0.05);
-      });
-      
-      group.current.visible = materialsRef.current[0]?.opacity > 0.001;
+    if (group.current && active) {
+      group.current.rotation.y += 0.002;
     }
   });
 
@@ -141,33 +127,30 @@ function ProjectKnowledgeGraph({ color, active, position, projectId }: { color: 
           points={pts} 
           color="#ffffff" 
           transparent 
-          lineWidth={1} 
-          material-userData={{ baseOpacity: 0.05 }}
-          ref={(m: any) => { if (m?.material && !materialsRef.current.includes(m.material)) materialsRef.current.push(m.material) }}
+          lineWidth={2} 
+          opacity={0.3}
         />
       ))}
       {nodes.map((node) => (
         <group key={`pnode-${node.id}`} position={node.pos}>
           <mesh>
-            {node.type === "decision" ? <octahedronGeometry args={[node.size]} /> : 
-             node.type === "risk" ? <icosahedronGeometry args={[node.size]} /> : 
-             <sphereGeometry args={[node.size, 16, 16]} />}
+            {node.type === "decision" ? <octahedronGeometry args={[node.size * 2]} /> : 
+             node.type === "risk" ? <icosahedronGeometry args={[node.size * 2]} /> : 
+             <sphereGeometry args={[node.size * 2, 16, 16]} />}
             <meshBasicMaterial 
               color={node.color} 
               transparent 
-              userData={{ baseOpacity: 0.8 }}
-              ref={(m: any) => { if (m && !materialsRef.current.includes(m)) materialsRef.current.push(m) }} 
+              opacity={0.8}
             />
           </mesh>
           {node.type !== "context" && (
             <mesh>
-              <sphereGeometry args={[node.size * 1.5, 16, 16]} />
+              <sphereGeometry args={[node.size * 3, 16, 16]} />
               <meshBasicMaterial 
                 color={node.color} 
                 transparent 
+                opacity={0.2}
                 blending={THREE.AdditiveBlending} 
-                userData={{ baseOpacity: 0.2 }}
-                ref={(m: any) => { if (m && !materialsRef.current.includes(m)) materialsRef.current.push(m) }} 
               />
             </mesh>
           )}
@@ -281,6 +264,7 @@ function SceneDirector() {
     fetch('/api/projects')
       .then(res => res.json())
       .then(data => {
+          console.log("[DEBUG] /api/projects response:", data);
           if (Array.isArray(data)) {
               // Assign random colors and positions since this is just visualization for now
               const colors = ["#FF4D67", "#8b5cf6", "#3b82f6", "#10b981", "#f59e0b"];
@@ -290,6 +274,8 @@ function SceneDirector() {
                   position: new THREE.Vector3((i * 5) % 15 - 5, (i * 3) % 10 - 2, (i * -4) % 15 - 2),
                   color: colors[i % colors.length]
               })));
+          } else {
+              console.log("[DEBUG] /api/projects is NOT an array!");
           }
       })
       .catch(e => console.error("Failed to load projects", e));
@@ -401,6 +387,7 @@ function SceneDirector() {
 
       {mountedProject && (() => {
         const p = projects.find(proj => proj.id === mountedProject);
+        console.log("[DEBUG] mountedProject is", mountedProject, "Found project in SpatialEngine:", p ? p.name : "NOT FOUND");
         if (!p) return null;
         return (
           <ProjectKnowledgeGraph 

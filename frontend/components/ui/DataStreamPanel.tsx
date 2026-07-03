@@ -65,6 +65,9 @@ export function DataStreamPanel() {
     
     // Remove from UI
     setItems(items.filter(item => item.id !== id));
+    
+    // Trigger memory refresh event so graph and HUD counters update
+    document.dispatchEvent(new CustomEvent('memory-updated'));
   };
 
   const filteredItems = items.filter(item => item.type === activeTab);
