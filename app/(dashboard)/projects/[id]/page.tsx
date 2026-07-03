@@ -76,7 +76,30 @@ export default function ProjectMemoryInterface({
         const res = await fetch(`/api/projects/${projectId}/continuation-prompt`, { method: 'POST' });
         const data = await res.json();
         if (data.prompt) {
-            await navigator.clipboard.writeText(data.prompt);
+            try {
+                if (navigator?.clipboard && window.isSecureContext) {
+                    await navigator.clipboard.writeText(data.prompt);
+                } else {
+                    throw new Error("Clipboard API not available");
+                }
+            } catch (err) {
+                // Fallback for when document is not focused or Clipboard API fails
+                const textArea = document.createElement("textarea");
+                textArea.value = data.prompt;
+                textArea.style.position = "fixed";
+                textArea.style.left = "-999999px";
+                textArea.style.top = "-999999px";
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                try {
+                    document.execCommand('copy');
+                } catch (fallbackErr) {
+                    console.error('Fallback: Oops, unable to copy', fallbackErr);
+                }
+                textArea.remove();
+            }
+            
             document.dispatchEvent(new CustomEvent('lifecycle-log', { 
               detail: { action: 'success', message: 'prompt copied to clipboard' } 
             }));

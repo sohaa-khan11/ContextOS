@@ -8,313 +8,387 @@ const AI_PLATFORMS = [
   'cursor.com'
 ];
 
+// Meaningful technical content
+const TECHNICAL_KEYWORDS = [
+  "fastapi", "flask", "django", "express", "react", "nextjs", "vue", "angular",
+  "redis", "postgres", "mongodb", "mysql", "sqlite", "dynamodb",
+  "docker", "kubernetes", "aws", "gcp", "azure", "vercel", "heroku",
+  "architecture", "recommendation", "tradeoff", "implementation", "todo", "risk",
+  "decision", "we decided", "recommend", "should use", "scalability", "async",
+  "rate limiting", "jwt", "authentication", "authorization", "oauth"
+];
+
 const currentDomain = window.location.hostname;
 const isAIPlatform = AI_PLATFORMS.some(domain => currentDomain.includes(domain));
 
-let suggestionQueue = [];
-let isPanelOpen = false;
+const suggestionCache = new Set(); // store texts we've already suggested or dismissed
+
+console.log("[STEP 1] ContextOS Content Script Loaded on", currentDomain);
+
+let overlaysContainer = null;
 let shadowRoot = null;
 
 if (isAIPlatform) {
+  console.log("[STEP 1] Recognized AI Platform. Initializing UI and Observer...");
+  initUIContainer();
   initObserver();
-  initUI();
+} else {
+  console.log("[STEP 1] Not an AI Platform. Skipping initialization.");
+}
+
+function initUIContainer() {
+  overlaysContainer = document.createElement('div');
+  overlaysContainer.id = 'contextos-overlays-container';
+  overlaysContainer.style.position = 'fixed';
+  overlaysContainer.style.top = '0';
+  overlaysContainer.style.left = '0';
+  overlaysContainer.style.width = '100vw';
+  overlaysContainer.style.height = '100vh';
+  overlaysContainer.style.pointerEvents = 'none'; // click through empty space
+  overlaysContainer.style.zIndex = '999999';
+  
+  shadowRoot = overlaysContainer.attachShadow({ mode: 'open' });
+  
+  const style = document.createElement('style');
+  style.textContent = `
+    .overlay {
+      position: absolute;
+      pointer-events: none;
+      border-left: 3px solid #34d399;
+      padding-left: 8px;
+      animation: glowPulse 2s infinite;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+      align-items: flex-start;
+      margin-left: -11px;
+    }
+    @keyframes glowPulse {
+      0% { border-left-color: rgba(52, 211, 153, 0.4); box-shadow: -4px 0 10px rgba(52, 211, 153, 0.0); }
+      50% { border-left-color: rgba(52, 211, 153, 1); box-shadow: -4px 0 15px rgba(52, 211, 153, 0.2); }
+      100% { border-left-color: rgba(52, 211, 153, 0.4); box-shadow: -4px 0 10px rgba(52, 211, 153, 0.0); }
+    }
+    .chip {
+      background: rgba(5, 1, 10, 0.95);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(8px);
+      border-radius: 8px;
+      padding: 6px 12px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+      font-family: -apple-system, sans-serif;
+      font-size: 11px;
+      color: rgba(255,255,255,0.9);
+      position: absolute;
+      top: -36px;
+      left: 0px;
+      white-space: nowrap;
+      transition: all 0.3s;
+      pointer-events: auto;
+    }
+    .chip-title { font-weight: 600; display: flex; align-items: center; gap: 6px; }
+    .chip-actions { display: flex; gap: 6px; }
+    button {
+      background: rgba(255,255,255,0.1);
+      border: none;
+      color: white;
+      padding: 4px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 10px;
+      text-transform: uppercase;
+      font-weight: bold;
+      transition: background 0.2s;
+    }
+    button.save { background: rgba(52, 211, 153, 0.2); color: #34d399; }
+    button.save:hover { background: rgba(52, 211, 153, 0.3); }
+    button.dismiss:hover { background: rgba(255, 100, 100, 0.3); color: #ff6b6b; }
+    button.why:hover { background: rgba(255,255,255,0.2); }
+    
+    .why-tooltip {
+      display: none;
+      position: absolute;
+      top: 100%;
+      left: 0;
+      margin-top: 8px;
+      background: #1e1e2e;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 6px;
+      padding: 12px;
+      width: 250px;
+      white-space: normal;
+      color: rgba(255,255,255,0.8);
+      font-size: 11px;
+      line-height: 1.4;
+      z-index: 10;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+    }
+    .chip:hover .why-tooltip.show { display: block; }
+  `;
+  shadowRoot.appendChild(style);
+  document.body.appendChild(overlaysContainer);
+  
+  window.addEventListener('scroll', updateOverlayPositions, true);
+  window.addEventListener('resize', updateOverlayPositions);
+}
+
+const activeOverlays = new Map();
+
+function updateOverlayPositions() {
+  for (const [node, overlay] of activeOverlays.entries()) {
+    if (!document.body.contains(node)) {
+      overlay.remove();
+      activeOverlays.delete(node);
+      continue;
+    }
+    const rect = node.getBoundingClientRect();
+    overlay.style.top = rect.top + 'px';
+    overlay.style.left = rect.left + 'px';
+    overlay.style.height = rect.height + 'px';
+  }
+}
+
+// FIX 1: Filter to check if node is inside an assistant message.
+// ChatGPT uses data-message-author-role="assistant" or .markdown
+function isAssistantMessage(node) {
+  let curr = node;
+  while (curr && curr !== document.body) {
+    if (curr.hasAttribute && curr.getAttribute('data-message-author-role') === 'assistant') {
+      return true;
+    }
+    if (curr.classList && curr.classList.contains('markdown')) {
+      return true;
+    }
+    curr = curr.parentNode;
+  }
+  return false;
+}
+
+// FIX 5: Check if > 40% are box drawing characters
+function isDiagram(text) {
+  const boxCharacters = /[│↓┌└─├┤┬┴┼╭╮╯╰]/g;
+  const matches = text.match(boxCharacters);
+  if (!matches) return false;
+  return (matches.length / text.length) > 0.4;
+}
+
+// FIX 3: Calculate heuristic score
+function calculateImportanceScore(text) {
+  const lowerText = text.toLowerCase();
+  let score = 0;
+  TECHNICAL_KEYWORDS.forEach(kw => {
+    if (lowerText.includes(kw)) score++;
+  });
+  return score;
 }
 
 function initObserver() {
   let debounceTimer;
-  
   const observer = new MutationObserver((mutations) => {
     clearTimeout(debounceTimer);
     debounceTimer = setTimeout(() => {
-      // Find all paragraph-like elements that are newly added
-      // A simple heuristic: look at the text of the page.
-      // But instead of looking at the whole page, we can track newly added large text blocks.
-      
+      console.log("[STEP 2] New DOM mutations detected (debounced)");
       const addedNodes = [];
       mutations.forEach(m => {
         m.addedNodes.forEach(node => {
           if (node.nodeType === Node.ELEMENT_NODE) {
             addedNodes.push(node);
+            const paragraphs = node.querySelectorAll ? node.querySelectorAll('p, li') : [];
+            paragraphs.forEach(p => addedNodes.push(p));
           }
         });
       });
 
-      // Filter for elements that contain substantial text
-      const newTextBlocks = addedNodes
-        .map(n => n.innerText || n.textContent)
-        .filter(text => text && text.trim().length > 150); // Arbitrary length for "meaningful block"
+      const candidateNodes = Array.from(new Set(addedNodes)).filter((node, idx) => {
+        if (!node.innerText) return false;
+        
+        // Ignore container nodes with many children to avoid duplicate highlights
+        if (node.children.length > 5) return false;
+        
+        const text = node.innerText.trim();
+        
+        // FIX 1: Only check assistant messages
+        if (!isAssistantMessage(node)) {
+           return false;
+        }
 
-      if (newTextBlocks.length > 0) {
-        // Send the latest largest block for analysis
-        const textToAnalyze = newTextBlocks.sort((a, b) => b.length - a.length)[0];
-        analyzeText(textToAnalyze);
+        console.log(`[STEP 3] Extracted Assistant Paragraph ${idx + 1}:\n${text}`);
+        
+        if (suggestionCache.has(text)) {
+           console.log(`[STEP 4] Ignored. Reason: Already processed/cached.`);
+           return false;
+        }
+        if (text.length < 80 || text.length > 1500) {
+           console.log(`[STEP 4] Ignored. Reason: Invalid length (${text.length} chars).`);
+           return false;
+        }
+        
+        // FIX 5: Exclude diagrams
+        if (isDiagram(text)) {
+           console.log(`[STEP 4] Ignored. Reason: Detected as diagram (>40% box drawing characters).`);
+           return false;
+        }
+        
+        // FIX 3: Calculate score
+        const score = calculateImportanceScore(text);
+        
+        // FIX 4: UI Fallback Debug Mode
+        // We bypass the heuristic threshold completely for testing!
+        console.log(`[STEP 4] UI DEBUG MODE ACTIVE. Score was ${score}. Bypassing heuristics and Groq.`);
+        return true; 
+      });
+
+      if (candidateNodes.length > 0) {
+        console.log(`[STEP 2] Found ${candidateNodes.length} candidate assistant paragraphs.`);
+        const nodesToProcess = candidateNodes.slice(0, 5); // Allow up to 5 highlights in debug mode
+        nodesToProcess.forEach((node, i) => {
+          const text = node.innerText.trim();
+          suggestionCache.add(text); 
+          
+          // STEP 10: FALLBACK TEST OVERRIDE
+          console.log("[STEP 10] Triggering Fallback UI Test instead of API");
+          createInlineSuggestion(node, text, {
+             memory_type: "Test Suggestion",
+             importance_score: 100,
+             reason: "Fallback hardcoded UI test",
+             should_save: true
+          });
+          
+          // analyzeNode(node, text); // Disabled for UI Test
+        });
+      } else {
+        console.log("[STEP 2] No viable assistant paragraphs found in this mutation block.");
       }
-    }, 2000); // Wait 2s for typing/streaming to settle
+    }, 1500);
   });
 
-  observer.observe(document.body, {
-    childList: true,
-    subtree: true
-  });
+  observer.observe(document.body, { childList: true, subtree: true, characterData: true });
 }
 
-function analyzeText(text) {
+function analyzeNode(node, text) {
+  console.log(`[STEP 5] Sending to Groq:\nPrompt: ${text}`);
   chrome.runtime.sendMessage({ action: 'ANALYZE_TEXT', text: text }, (response) => {
     if (response && response.success && response.data) {
       const data = response.data;
-      if (data.is_duplicate) return; // Ignore duplicates
-      if (data.analysis && data.analysis.importance_score > 50) { // Only suggest highly important stuff
-        suggestionQueue.push({
-          id: Date.now(),
-          text: text,
-          analysis: data.analysis,
-          related: data.related_memories || []
-        });
-        updateIndicator();
+      if (data.is_duplicate) {
+         console.log(`[STEP 5] Groq returned Duplicate.`);
+         return;
       }
+      if (data.analysis) {
+        console.log(`[STEP 5] Groq Response:\nConfidence: ${data.analysis.importance_score}\nMemory Type: ${data.analysis.memory_type}\nReason: ${data.analysis.reason}`);
+        if (data.analysis.importance_score > 50 && data.analysis.should_save) {
+          createInlineSuggestion(node, text, data.analysis);
+        } else {
+          console.log("[STEP 5] Ignored: Confidence too low or should_save is false.");
+        }
+      }
+    } else {
+      console.log(`[STEP 5] Groq Request Failed:`, response);
     }
   });
 }
 
-function initUI() {
-  const container = document.createElement('div');
-  container.id = 'contextos-container';
-  container.style.position = 'fixed';
-  container.style.bottom = '24px';
-  container.style.right = '24px';
-  container.style.zIndex = '999999';
-  
-  shadowRoot = container.attachShadow({ mode: 'open' });
-  
-  // Inject CSS
-  const style = document.createElement('style');
-  style.textContent = `
-    :host {
-      --color-primary: #34d399;
-      --color-bg: rgba(0, 0, 0, 0.7);
-      --color-panel: rgba(5, 1, 10, 0.95);
-      --color-border: rgba(255, 255, 255, 0.1);
-      --color-text: rgba(255, 255, 255, 0.9);
-      --color-text-dim: rgba(255, 255, 255, 0.5);
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    }
-    .indicator {
-      background: var(--color-bg);
-      backdrop-filter: blur(8px);
-      border: 1px solid var(--color-border);
-      border-radius: 20px;
-      padding: 8px 16px;
-      color: var(--color-text);
-      font-size: 13px;
-      font-weight: 500;
-      cursor: pointer;
-      display: none;
-      align-items: center;
-      gap: 8px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-      transition: all 0.3s ease;
-    }
-    .indicator:hover {
-      background: rgba(0,0,0,0.9);
-      border-color: var(--color-primary);
-    }
-    .indicator.pulse {
-      animation: indicator-pulse 2s infinite;
-    }
-    @keyframes indicator-pulse {
-      0% { box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.4); }
-      70% { box-shadow: 0 0 0 10px rgba(52, 211, 153, 0); }
-      100% { box-shadow: 0 0 0 0 rgba(52, 211, 153, 0); }
-    }
-    
-    .panel {
-      position: absolute;
-      bottom: 50px;
-      right: 0;
-      width: 320px;
-      background: var(--color-panel);
-      backdrop-filter: blur(16px);
-      border: 1px solid var(--color-border);
-      border-radius: 16px;
-      padding: 16px;
-      display: none;
-      flex-direction: column;
-      gap: 12px;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
-      max-height: 400px;
-      overflow-y: auto;
-    }
-    
-    /* Scrollbar styling */
-    .panel::-webkit-scrollbar { width: 4px; }
-    .panel::-webkit-scrollbar-track { background: transparent; }
-    .panel::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 4px; }
-
-    .suggestion-card {
-      background: rgba(255,255,255,0.03);
-      border: 1px solid var(--color-border);
-      border-radius: 12px;
-      padding: 12px;
-    }
-    .header-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 8px;
-    }
-    .score {
-      font-family: monospace;
-      color: var(--color-primary);
-      font-size: 14px;
-      font-weight: bold;
-    }
-    .type-badge {
-      font-size: 9px;
-      font-family: monospace;
-      text-transform: uppercase;
-      background: rgba(255,255,255,0.1);
-      padding: 2px 6px;
-      border-radius: 4px;
-      color: var(--color-text);
-    }
-    .summary {
-      font-size: 12px;
-      color: var(--color-text);
-      line-height: 1.4;
-      margin-bottom: 8px;
-    }
-    .reason {
-      font-size: 11px;
-      color: var(--color-text-dim);
-      font-style: italic;
-      margin-bottom: 12px;
-    }
-    .actions {
-      display: flex;
-      gap: 8px;
-    }
-    button {
-      flex: 1;
-      padding: 8px;
-      border-radius: 8px;
-      border: none;
-      font-size: 10px;
-      font-family: monospace;
-      text-transform: uppercase;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-    .btn-save {
-      background: rgba(52, 211, 153, 0.1);
-      color: var(--color-primary);
-      border: 1px solid rgba(52, 211, 153, 0.3);
-    }
-    .btn-save:hover { background: rgba(52, 211, 153, 0.2); }
-    .btn-dismiss {
-      background: rgba(255,255,255,0.05);
-      color: var(--color-text-dim);
-      border: 1px solid rgba(255,255,255,0.1);
-    }
-    .btn-dismiss:hover { background: rgba(255,255,255,0.1); color: var(--color-text); }
-  `;
-  shadowRoot.appendChild(style);
-
-  const indicator = document.createElement('div');
-  indicator.className = 'indicator';
-  indicator.id = 'indicator';
-  indicator.innerHTML = `<span>🧠</span> <span id="indicator-text"></span>`;
-  indicator.onclick = () => {
-    isPanelOpen = !isPanelOpen;
-    renderPanel();
-  };
-  shadowRoot.appendChild(indicator);
-  
-  const panel = document.createElement('div');
-  panel.className = 'panel';
-  panel.id = 'panel';
-  shadowRoot.appendChild(panel);
-
-  document.body.appendChild(container);
-}
-
-function updateIndicator() {
-  const indicator = shadowRoot.getElementById('indicator');
-  const text = shadowRoot.getElementById('indicator-text');
-  
-  if (suggestionQueue.length > 0) {
-    indicator.style.display = 'flex';
-    indicator.classList.add('pulse');
-    text.textContent = `${suggestionQueue.length} Memory Suggestion${suggestionQueue.length > 1 ? 's' : ''}`;
-  } else {
-    indicator.style.display = 'none';
-    indicator.classList.remove('pulse');
-    isPanelOpen = false;
-    renderPanel();
+function createInlineSuggestion(node, text, analysis) {
+  if (!document.body.contains(node)) {
+     console.log("[STEP 7] Failed: Node is no longer in DOM.");
+     return;
   }
-}
-
-function renderPanel() {
-  const panel = shadowRoot.getElementById('panel');
-  if (!isPanelOpen) {
-    panel.style.display = 'none';
-    return;
-  }
-  
-  panel.style.display = 'flex';
-  panel.innerHTML = '';
-  
-  if (suggestionQueue.length === 0) {
-    isPanelOpen = false;
-    panel.style.display = 'none';
-    return;
+  if (activeOverlays.has(node)) {
+     console.log("[STEP 7] Failed: Node already has an overlay.");
+     return;
   }
 
-  suggestionQueue.forEach((suggestion) => {
-    const card = document.createElement('div');
-    card.className = 'suggestion-card';
-    card.innerHTML = `
-      <div class="header-row">
-        <div class="score">${suggestion.analysis.importance_score}%</div>
-        <div class="type-badge">${suggestion.analysis.memory_type}</div>
-      </div>
-      <div class="summary">${suggestion.analysis.summary}</div>
-      <div class="reason">${suggestion.analysis.reason}</div>
-      <div class="actions">
-        <button class="btn-save">Save</button>
-        <button class="btn-dismiss">Dismiss</button>
-      </div>
-    `;
+  console.log("[STEP 6] Creating overlay components...");
+
+  const overlay = document.createElement('div');
+  overlay.className = 'overlay';
+  
+  const rect = node.getBoundingClientRect();
+  console.log(`[STEP 7] Bounding Client Rect:\nTop: ${rect.top}\nLeft: ${rect.left}\nWidth: ${rect.width}\nHeight: ${rect.height}`);
+  
+  if (rect.width === 0 || rect.height === 0) {
+      console.log("[STEP 7] Warning: Bounding rect has 0 width or height. It might be off-screen or display:none.");
+  }
+
+  // Remove the strict CSS override and use real positioning 
+  overlay.style.top = rect.top + 'px';
+  overlay.style.left = rect.left + 'px';
+  overlay.style.height = rect.height + 'px';
+
+  console.log("[STEP 6] Creating chip...");
+  const chip = document.createElement('div');
+  chip.className = 'chip';
+  
+  const title = document.createElement('div');
+  title.className = 'chip-title';
+  title.innerHTML = `💡 ${analysis.memory_type} detected`;
+  
+  const actions = document.createElement('div');
+  actions.className = 'chip-actions';
+  
+  const saveBtn = document.createElement('button');
+  saveBtn.className = 'save';
+  saveBtn.textContent = 'Save';
+  
+  const dismissBtn = document.createElement('button');
+  dismissBtn.className = 'dismiss';
+  dismissBtn.textContent = 'Dismiss';
+  
+  const whyBtn = document.createElement('button');
+  whyBtn.className = 'why';
+  whyBtn.textContent = 'Why?';
+  
+  const whyTooltip = document.createElement('div');
+  whyTooltip.className = 'why-tooltip';
+  whyTooltip.innerHTML = `<strong>Confidence:</strong> ${analysis.importance_score}%<br/><br/><strong>Reason:</strong> ${analysis.reason}`;
+
+  whyBtn.onmouseenter = () => whyTooltip.classList.add('show');
+  whyBtn.onmouseleave = () => whyTooltip.classList.remove('show');
+
+  saveBtn.onclick = () => {
+    saveBtn.textContent = 'Saving...';
+    saveBtn.disabled = true;
     
-    card.querySelector('.btn-dismiss').onclick = () => {
-      suggestionQueue = suggestionQueue.filter(s => s.id !== suggestion.id);
-      updateIndicator();
-      renderPanel();
-    };
-    
-    card.querySelector('.btn-save').onclick = () => {
-      const btn = card.querySelector('.btn-save');
-      btn.textContent = "Saving...";
-      btn.disabled = true;
-      
-      const metadata = {
+    chrome.runtime.sendMessage({
+      action: 'SAVE_MEMORY', 
+      text: text,
+      metadata: {
         url: window.location.href,
         title: document.title,
         domain: window.location.hostname,
         timestamp: new Date().toISOString()
-      };
-      
-      chrome.runtime.sendMessage({
-        action: 'SAVE_MEMORY', 
-        text: suggestion.text,
-        metadata: metadata,
-        source: metadata.domain
-      }, (res) => {
-        suggestionQueue = suggestionQueue.filter(s => s.id !== suggestion.id);
-        updateIndicator();
-        renderPanel();
-      });
-    };
-    
-    panel.appendChild(card);
-  });
+      },
+      source: window.location.hostname
+    }, (res) => {
+      chip.innerHTML = `<div class="chip-title" style="color: #34d399">✓ Saved to ContextOS</div>`;
+      overlay.style.animation = 'none';
+      overlay.style.borderLeftColor = '#34d399';
+      setTimeout(() => {
+        overlay.remove();
+        activeOverlays.delete(node);
+      }, 2000);
+    });
+  };
+
+  dismissBtn.onclick = () => {
+    overlay.remove();
+    activeOverlays.delete(node);
+  };
+
+  actions.appendChild(saveBtn);
+  actions.appendChild(dismissBtn);
+  actions.appendChild(whyBtn);
+  
+  chip.appendChild(title);
+  chip.appendChild(actions);
+  chip.appendChild(whyTooltip);
+  
+  overlay.appendChild(chip);
+  shadowRoot.appendChild(overlay);
+  
+  console.log("[STEP 6] Shadow DOM attached successfully.");
+  
+  activeOverlays.set(node, overlay);
 }
