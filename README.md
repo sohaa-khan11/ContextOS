@@ -1,173 +1,89 @@
-# ContextOS
+# ContextOS 🧠
 
-![ContextOS Hero](README-assets/hero.png)
-ContextOS is a proactive, ambient memory layer that transforms how you interact with AI. It acts as an intelligent bridge across platforms—seamlessly tracking your project context, building an evolving knowledge graph, and allowing you to instantly hand off your entire project state to any AI assistant anywhere on the web.
+[![Next.js 16](https://img.shields.io/badge/Next.js-16-black?style=flat&logo=nextdotjs)](https://nextjs.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-009688?style=flat&logo=fastapi)](https://fastapi.tiangolo.com/)
+[![Chrome Extension](https://img.shields.io/badge/Chrome_Extension-Manifest_V3-4285F4?style=flat&logo=googlechrome)](https://developer.chrome.com/docs/extensions/)
+[![Cognee Cloud](https://img.shields.io/badge/Graph_Database-Cognee_Cloud-blueviolet?style=flat)](https://www.cognee.ai/)
 
-## The Problem
+**ContextOS** is a proactive, ambient memory layer that transforms how you build software with AI. It acts as an intelligent bridge across platforms—seamlessly tracking your project context, building an evolving knowledge graph, and allowing you to instantly hand off your entire project state to any AI assistant anywhere on the web.
 
-When working on complex projects with AI assistants (like ChatGPT, Claude, or Gemini), context is incredibly fragile. 
-- **Context is lost across sessions:** Every time you start a new chat, you have to painstakingly re-explain your architecture, decisions, and goals.
-- **Siloed Knowledge:** The brilliant architecture decision you made in Claude yesterday is completely invisible to Cursor today.
-- **Manual Overhead:** Maintaining a "master prompt" document is tedious, error-prone, and quickly becomes outdated.
+---
 
-## The Solution
+## 📖 The ContextOS Index
 
-ContextOS solves this by creating a persistent, cross-platform memory layer powered by Cognee's graph capabilities. 
+To dive deep into specific aspects of the system, explore the detailed guides in the `docs/` folder:
 
-**The Workflow:**
-1. **Browser**: As you work across AI platforms, the ContextOS extension quietly observes your interactions.
-2. **AI Analysis (Groq)**: Meaningful text blocks are routed to a blazing-fast Groq LLM endpoint to extract discrete project insights (decisions, tasks, risks).
-3. **Knowledge Graph (Cognee Cloud)**: These insights are pushed into Cognee, which structures them into a queryable, persistent Knowledge Graph.
-4. **Dashboard**: You can visually explore this memory graph and manage your project data in a stunning 3D spatial interface.
-5. **Continue Anywhere**: With one click, ContextOS compiles your entire project state into a perfectly formatted continuation prompt and injects it into your target AI platform.
+* 🏗️ **[Architecture Specification](file:///C:/Users/sohar/Projects/ContextOS/docs/ARCHITECTURE.md)**: High-level systems design and sequence diagrams.
+* 🔌 **[API Reference](file:///C:/Users/sohar/Projects/ContextOS/docs/API_REFERENCE.md)**: Endpoints, payload schemas, and mock response JSONs.
+* 📂 **[Project Structure](file:///C:/Users/sohar/Projects/ContextOS/docs/PROJECT_STRUCTURE.md)**: Directory layout and module responsibilities.
+* 🔄 **[Memory Pipeline](file:///C:/Users/sohar/Projects/ContextOS/docs/MEMORY_PIPELINE.md)**: Lifecycle stages from ambient capture to graph traversal.
+* 🎥 **[Video Guide](file:///C:/Users/sohar/Projects/ContextOS/docs/VIDEO_GUIDE.md)** & **[Video Script](file:///C:/Users/sohar/Projects/ContextOS/docs/VIDEO_SCRIPT.md)**: Demo preparation and word-for-word spoken presentation script.
+* 📋 **[Demo Checklist](file:///C:/Users/sohar/Projects/ContextOS/docs/DEMO_CHECKLIST.md)**: Pre-flight checklist to run before recording or presenting.
+* 🎙️ **[Presentation Q&A Guide](file:///C:/Users/sohar/Projects/ContextOS/docs/PRESENTATION_GUIDE.md)**: Strong technical answers to common judge questions.
+* 🤖 **[AI Programmers Workflow](file:///C:/Users/sohar/Projects/ContextOS/docs/AI_WORKFLOW.md)**: Prompting guidelines and task division between ChatGPT, Claude, and Antigravity.
+* 🏆 **[Devpost Submission Template](file:///C:/Users/sohar/Projects/ContextOS/docs/HACKATHON_SUBMISSION.md)**: Clean copy-paste ready template for the hackathon submission form.
 
-## Features
+---
 
-- **AI Memory Suggestions**: ContextOS proactively analyzes your AI conversations in the background and surfaces a beautiful, non-intrusive floating indicator with memory suggestions. No manual highlighting required!
-- **Universal AI Handoff**: Continue your project across ChatGPT, Claude, Gemini, Cursor, GitHub, or Perplexity with a single click.
-- **Smart Importance Detection**: Automatically scores text blocks so only highly relevant information makes it to your suggestion queue.
-- **Project Knowledge Graph**: A full memory pipeline leveraging graph databases rather than traditional vector RAG.
-- **3D Spatial Memory Interface**: A visually stunning, glassmorphic 3D dashboard to explore your project nodes and edges.
-- **Project Isolation**: Group your memories into distinct, isolated projects.
-- **Continuation Prompt Generator**: Automatically compiles decisions, tasks, facts, and risks into a single master prompt.
-- **Complete Memory Lifecycle**: 
-  - `remember`: Saves new memories.
-  - `recall`: Retrieves structured context.
-  - `improve`: Enriches the graph with a new LLM pass.
-  - `forget`: Permanently deletes memories or entire projects.
-- **Duplicate Detection**: Hashes and dedupes memories at the database layer to prevent graph pollution.
-- **Chrome Extension**: The primary interface that acts as your roaming context layer.
-- **Decisions, Tasks, & Risks Tracking**: Automatically categorizes extracted insights.
-- **Timeline Activity Stream**: A chronological log of how your project has evolved.
+## ⚡ Quick Start
 
-## Architecture
-
-```mermaid
-graph TD
-    A[ContextOS Chrome Extension] -->|Capture & Handoff| B(Next.js API Layer)
-    B -->|Proxy| C{FastAPI Python Service}
-    
-    C -->|Extract Units & Analyze| D[Groq API]
-    C -->|Hash Deduplication| E[(Supabase PostgreSQL)]
-    
-    C -->|Knowledge Graph Ops| F[Cognee Cloud]
-    
-    F -->|Graph Storage| G[(Network DB)]
-    F -->|Vector Index| H[(Vector DB)]
-    
-    I[Next.js Dashboard UI] -->|Fetch Projects| E
-    I -->|Graph Data| B
-```
-
-**Responsibilities:**
-- **Chrome Extension**: Monitors DOM for streaming AI text, handles proactive UI (Shadow DOM), manages handoffs, captures metadata.
-- **Next.js (Frontend & API proxy)**: Renders the 3D dashboard, proxies extension requests, manages project CRUD operations in Supabase.
-- **Python Service (FastAPI)**: The orchestration engine. Handles deduplication logic, calls Groq, formats statements, and interacts with Cognee.
-- **Groq**: Extremely fast extraction of structured JSON (Tasks, Decisions, Risks) from raw text.
-- **Cognee Cloud**: Creates, manages, and queries the project knowledge graph.
-- **Supabase**: Relational storage for Projects, Extension Tokens, and Deduplication Capture Hashes.
-
-## Tech Stack
-
-**Frontend:** Next.js (React), Tailwind CSS, Three.js (Spatial UI), Lucide Icons  
-**Backend:** FastAPI (Python), Next.js App Router API  
-**Extension:** Manifest V3, Vanilla JS/CSS (Shadow DOM)  
-**Database:** Supabase (PostgreSQL)  
-**AI & Graph:** Cognee Cloud, Groq API  
-
-## Memory Lifecycle
-
-ContextOS is built around four core memory operations:
-
-1. **`remember()`**: When you save a memory (e.g. from the extension's suggestion panel), the text is hashed, extracted by Groq, formatted, and ingested into Cognee as a new node.
-2. **`recall()`**: When you click "Continue Project", ContextOS queries Cognee to traverse the graph and retrieve the project's current state, decisions, and tasks.
-3. **`improve()`**: Triggered by the "Refresh" (Zap) button on the dashboard. Cognee runs a background LLM pass to merge duplicate nodes and enrich graph relationships.
-4. **`forget()`**: Triggered when you delete a project. ContextOS instructs Cognee to completely wipe the dataset and graph, and cleans up relational records in Supabase.
-
-## How It Works (The User Journey)
-
-1. **Start a Project**: You open the ContextOS Dashboard and initialize a new project (e.g. "Hackathon Build").
-2. **Browse & Work**: You go to Claude and start brainstorming architecture.
-3. **Proactive Suggestion**: Claude gives a great answer. The ContextOS extension notices, analyzes it via Groq in the background, and a subtle `🧠 1 Memory Suggestion` pulses in the corner.
-4. **Save Context**: You click the indicator, review the extracted Decision, and hit "Save". The memory enters Cognee.
-5. **Handoff**: Later, you open Cursor. You open the extension, select your project, and click "Continue Project".
-6. **Inject**: The extension generates a master continuation prompt from your graph, copies it to your clipboard, and you paste it into Cursor to pick up exactly where you left off.
-
-## Installation
-
-### 1. Clone the Repository
+### 1. Run the Next.js Web Dashboard
 ```bash
-git clone https://github.com/your-username/ContextOS.git
-cd ContextOS
-```
-
-### 2. Run the Next.js Frontend
-```bash
+# Install dependencies
 npm install
+
+# Run the development server
 npm run dev
 ```
-*Runs on `http://localhost:3000`*
+*Resolves to `http://localhost:3000`*
 
-### 3. Run the Python Service
+### 2. Run the Python FastAPI Backend
 Open a new terminal:
 ```bash
 cd python-cognee-service
 python -m venv venv
-# Windows:
+
+# Activate Virtual Environment (Windows)
 .\venv\Scripts\activate
-# Mac/Linux:
+# Activate Virtual Environment (Mac/Linux)
 source venv/bin/activate
 
+# Install dependencies and start server
 pip install -r requirements.txt
 uvicorn main:app --port 8000
 ```
+*Resolves to `http://localhost:8000`*
 
-### 4. Load the Chrome Extension
-1. Open Chrome and go to `chrome://extensions/`
-2. Enable **Developer mode** in the top right.
-3. Click **Load unpacked**.
+### 3. Load the Chrome Extension
+1. Open Chrome and navigate to `chrome://extensions/`.
+2. Toggle **Developer mode** on in the top-right corner.
+3. Click **Load unpacked** in the top-left corner.
 4. Select the `extension/` folder inside the ContextOS directory.
 
-## Environment Variables
+---
 
-Create a `.env` file in the root directory:
+## 🛠️ Tech Stack
 
-```env
-# SUPABASE
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
-SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+- **Dashboard**: Next.js 16 (React), Tailwind CSS, Three.js (React Three Fiber)
+- **Backend Service**: Python 3.11, FastAPI, Pydantic v2
+- **Extension**: Chrome Manifest V3, Vanilla JS/CSS (Shadow DOM isolated overlays)
+- **Database & Graph**: Supabase (PostgreSQL), Cognee Cloud (Neo4j Graph Database & Qdrant Vector Index), Groq API (Llama 3 structured data extraction)
 
-# COGNEE CLOUD
-COGNEE_CLOUD_URL=your_cognee_url
-COGNEE_API_KEY=your_cognee_api_key
+---
 
-# LLM
-GROQ_API_KEY=your_groq_api_key
+## 🎨 Project Visuals
 
-# INTERNAL SERVICES
-PYTHON_SERVICE_URL=http://localhost:8000
-```
+### 3D Spatial Memory Graph Dashboard
+A glassmorphic 3D environment displaying project decisions, facts, and tasks as nodes, dynamically synced via Server-Sent Events (SSE):
 
-## Screenshots
+![Dashboard Spatial Graph Screenshot](README-assets/hero.png)
 
-> ![Project Workspace](README-assets/project-workspace.png)
-> ![Save Memory](README-assets/save-memory.png)
-> ![Continue Anywhere](README-assets/continue-anywhere.png)
+### Proactive Capture Overlay
+The extension automatically detects when response generation finishes, filters out clutter, and places a compact, inline horizontal suggestions toolbar directly below the decisions paragraph:
 
-## Why Cognee?
+![Proactive Capture Overlay Screenshot](design/contextos_wireframe_extension_popup.html)
 
-ContextOS explicitly avoids traditional Vector Database RAG (Retrieval-Augmented Generation) in favor of **Cognee's Knowledge Graphs**.
+---
 
-- **Reasoning Chains vs Semantic Similarity**: Vector RAG is great at finding "similar" text, but terrible at understanding logical progression. Cognee's graph structure allows ContextOS to trace *how* a decision was made and *what* alternatives were rejected.
-- **Persistent Memory Integration**: Cognee allows us to create isolated datasets (`ctxos_project_id`) that act as long-term, self-improving memory banks.
-- **Self-Improvement**: By leveraging Cognee's `improve()` pipeline, our knowledge graph actually gets smarter over time, merging conflicting facts and strengthening relationships without manual intervention.
-
-
-## Future Work
-- **Native IDE Integrations**: Bring the suggestion indicator directly into VSCode/Cursor editors.
-- **Automated Memory Expiry**: Allow facts to naturally decay if contradicted by newer graph nodes.
-- **Multi-Agent Sync**: Allow autonomous AI agents to query the Cognee graph directly via API.
-
-## AI Disclosure
-As permitted by the hackathon rules, AI coding assistants (including Anthropic Claude and Google Gemini models) were utilized during the development of this project for architecture brainstorming, boilerplate generation, and debugging assistance. All core architecture and integration logic was explicitly directed and verified by the human developer.
+## 📜 License
+ContextOS is open-source software licensed under the **MIT License**.
