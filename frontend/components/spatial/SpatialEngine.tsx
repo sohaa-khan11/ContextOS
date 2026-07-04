@@ -108,7 +108,7 @@ function ProjectKnowledgeGraph({ color, active, position, projectId }: { color: 
         const src = nodesWithPos.find((n: any) => n.id === e.source);
         const tgt = nodesWithPos.find((n: any) => n.id === e.target);
         return src && tgt ? [src.pos, tgt.pos] : null;
-    }).filter(Boolean);
+    }).filter(Boolean) as any[];
     
     return { nodes: nodesWithPos, lines: validEdges };
   }, [rawNodes, rawEdges, color]);

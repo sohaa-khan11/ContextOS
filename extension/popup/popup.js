@@ -51,7 +51,22 @@ document.addEventListener('DOMContentLoaded', async () => {
         opt.textContent = p.name;
         projectSelect.appendChild(opt);
       });
+      try {
+        const storageData = await chrome.storage.local.get('activeProjectId');
+        if (storageData.activeProjectId && allProjects.some(p => p.id === storageData.activeProjectId)) {
+          projectSelect.value = storageData.activeProjectId;
+        } else {
+          await chrome.storage.local.set({ activeProjectId: allProjects[0].id });
+        }
+      } catch(e) {}
     }
+    
+    projectSelect.addEventListener('change', async () => {
+      try {
+        await chrome.storage.local.set({ activeProjectId: projectSelect.value });
+        showToast("Active project updated!");
+      } catch(e) {}
+    });
   } catch (e) {
     console.error("Failed to load projects", e);
     showToast("Failed to connect to ContextOS");

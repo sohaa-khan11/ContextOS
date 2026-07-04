@@ -1,394 +1,304 @@
-const AI_PLATFORMS = [
-  'chat.openai.com',
-  'chatgpt.com',
-  'claude.ai',
-  'gemini.google.com',
-  'perplexity.ai',
-  'github.com',
-  'cursor.com'
-];
+console.log("[ContextOS] Clean Proactive Rewrite Loaded!");
 
-// Meaningful technical content
-const TECHNICAL_KEYWORDS = [
-  "fastapi", "flask", "django", "express", "react", "nextjs", "vue", "angular",
-  "redis", "postgres", "mongodb", "mysql", "sqlite", "dynamodb",
-  "docker", "kubernetes", "aws", "gcp", "azure", "vercel", "heroku",
-  "architecture", "recommendation", "tradeoff", "implementation", "todo", "risk",
-  "decision", "we decided", "recommend", "should use", "scalability", "async",
-  "rate limiting", "jwt", "authentication", "authorization", "oauth"
-];
-
-const currentDomain = window.location.hostname;
-const isAIPlatform = AI_PLATFORMS.some(domain => currentDomain.includes(domain));
-
-const suggestionCache = new Set(); // store texts we've already suggested or dismissed
-
-console.log("[STEP 1] ContextOS Content Script Loaded on", currentDomain);
-
-let overlaysContainer = null;
-let shadowRoot = null;
-
-if (isAIPlatform) {
-  console.log("[STEP 1] Recognized AI Platform. Initializing UI and Observer...");
-  initUIContainer();
-  initObserver();
-} else {
-  console.log("[STEP 1] Not an AI Platform. Skipping initialization.");
-}
-
-function initUIContainer() {
-  overlaysContainer = document.createElement('div');
-  overlaysContainer.id = 'contextos-overlays-container';
-  overlaysContainer.style.position = 'fixed';
-  overlaysContainer.style.top = '0';
-  overlaysContainer.style.left = '0';
-  overlaysContainer.style.width = '100vw';
-  overlaysContainer.style.height = '100vh';
-  overlaysContainer.style.pointerEvents = 'none'; // click through empty space
-  overlaysContainer.style.zIndex = '999999';
-  
-  shadowRoot = overlaysContainer.attachShadow({ mode: 'open' });
-  
-  const style = document.createElement('style');
-  style.textContent = `
-    .overlay {
-      position: absolute;
-      pointer-events: none;
-      border-left: 3px solid #34d399;
-      padding-left: 8px;
-      animation: glowPulse 2s infinite;
-      display: flex;
-      flex-direction: column;
-      justify-content: flex-start;
-      align-items: flex-start;
-      margin-left: -11px;
-    }
-    @keyframes glowPulse {
-      0% { border-left-color: rgba(52, 211, 153, 0.4); box-shadow: -4px 0 10px rgba(52, 211, 153, 0.0); }
-      50% { border-left-color: rgba(52, 211, 153, 1); box-shadow: -4px 0 15px rgba(52, 211, 153, 0.2); }
-      100% { border-left-color: rgba(52, 211, 153, 0.4); box-shadow: -4px 0 10px rgba(52, 211, 153, 0.0); }
-    }
-    .chip {
-      background: rgba(5, 1, 10, 0.95);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      backdrop-filter: blur(8px);
-      border-radius: 8px;
-      padding: 6px 12px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-      font-family: -apple-system, sans-serif;
-      font-size: 11px;
-      color: rgba(255,255,255,0.9);
-      position: absolute;
-      top: -36px;
-      left: 0px;
-      white-space: nowrap;
-      transition: all 0.3s;
-      pointer-events: auto;
-    }
-    .chip-title { font-weight: 600; display: flex; align-items: center; gap: 6px; }
-    .chip-actions { display: flex; gap: 6px; }
-    button {
-      background: rgba(255,255,255,0.1);
-      border: none;
-      color: white;
-      padding: 4px 8px;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 10px;
-      text-transform: uppercase;
-      font-weight: bold;
-      transition: background 0.2s;
-    }
-    button.save { background: rgba(52, 211, 153, 0.2); color: #34d399; }
-    button.save:hover { background: rgba(52, 211, 153, 0.3); }
-    button.dismiss:hover { background: rgba(255, 100, 100, 0.3); color: #ff6b6b; }
-    button.why:hover { background: rgba(255,255,255,0.2); }
-    
-    .why-tooltip {
-      display: none;
-      position: absolute;
-      top: 100%;
-      left: 0;
-      margin-top: 8px;
-      background: #1e1e2e;
-      border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 6px;
-      padding: 12px;
-      width: 250px;
-      white-space: normal;
-      color: rgba(255,255,255,0.8);
-      font-size: 11px;
-      line-height: 1.4;
-      z-index: 10;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-    }
-    .chip:hover .why-tooltip.show { display: block; }
-  `;
-  shadowRoot.appendChild(style);
-  document.body.appendChild(overlaysContainer);
-  
-  window.addEventListener('scroll', updateOverlayPositions, true);
-  window.addEventListener('resize', updateOverlayPositions);
-}
-
+let wasGenerating = false;
 const activeOverlays = new Map();
 
-function updateOverlayPositions() {
-  for (const [node, overlay] of activeOverlays.entries()) {
-    if (!document.body.contains(node)) {
-      overlay.remove();
-      activeOverlays.delete(node);
-      continue;
-    }
-    const rect = node.getBoundingClientRect();
-    overlay.style.top = rect.top + 'px';
-    overlay.style.left = rect.left + 'px';
-    overlay.style.height = rect.height + 'px';
-  }
+
+// Simple helper to go up parent
+function getParent(node) {
+  return node.parentNode;
 }
 
-// FIX 1: Filter to check if node is inside an assistant message.
-// ChatGPT uses data-message-author-role="assistant" or .markdown
-function isAssistantMessage(node) {
+function isInsideCodeBlock(node) {
   let curr = node;
   while (curr && curr !== document.body) {
-    if (curr.hasAttribute && curr.getAttribute('data-message-author-role') === 'assistant') {
-      return true;
-    }
-    if (curr.classList && curr.classList.contains('markdown')) {
-      return true;
-    }
-    curr = curr.parentNode;
+    if (curr.tagName === 'PRE' || curr.tagName === 'CODE') return true;
+    curr = getParent(curr);
   }
   return false;
 }
 
-// FIX 5: Check if > 40% are box drawing characters
 function isDiagram(text) {
-  const boxCharacters = /[│↓┌└─├┤┬┴┼╭╮╯╰]/g;
-  const matches = text.match(boxCharacters);
-  if (!matches) return false;
-  return (matches.length / text.length) > 0.4;
-}
-
-// FIX 3: Calculate heuristic score
-function calculateImportanceScore(text) {
-  const lowerText = text.toLowerCase();
-  let score = 0;
-  TECHNICAL_KEYWORDS.forEach(kw => {
-    if (lowerText.includes(kw)) score++;
-  });
-  return score;
-}
-
-function initObserver() {
-  let debounceTimer;
-  const observer = new MutationObserver((mutations) => {
-    clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(() => {
-      console.log("[STEP 2] New DOM mutations detected (debounced)");
-      const addedNodes = [];
-      mutations.forEach(m => {
-        m.addedNodes.forEach(node => {
-          if (node.nodeType === Node.ELEMENT_NODE) {
-            addedNodes.push(node);
-            const paragraphs = node.querySelectorAll ? node.querySelectorAll('p, li') : [];
-            paragraphs.forEach(p => addedNodes.push(p));
+  const structuralChars = /[│↓┌└─├┤┬┴┼╭╮╯╰|\\=>\\-]/g;
+  const matches = text.match(structuralChars);
+  const score = matches ? (matches.length / text.length) : 0;
+  
+  const lines = text.split('\n');
+  let hasStandalone = false;
+  for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      if (/^[↓|│┌└─├┤┬┴┼╭╮╯╰\-=>+^V\s]+$/i.test(trimmed)) {
+          if (trimmed.length < 5 || /^[↓|│┌└─├┤┬┴┼╭╮╯╰\s]+$/i.test(trimmed)) {
+              hasStandalone = true;
+              break;
           }
-        });
-      });
-
-      const candidateNodes = Array.from(new Set(addedNodes)).filter((node, idx) => {
-        if (!node.innerText) return false;
-        
-        // Ignore container nodes with many children to avoid duplicate highlights
-        if (node.children.length > 5) return false;
-        
-        const text = node.innerText.trim();
-        
-        // FIX 1: Only check assistant messages
-        if (!isAssistantMessage(node)) {
-           return false;
-        }
-
-        console.log(`[STEP 3] Extracted Assistant Paragraph ${idx + 1}:\n${text}`);
-        
-        if (suggestionCache.has(text)) {
-           console.log(`[STEP 4] Ignored. Reason: Already processed/cached.`);
-           return false;
-        }
-        if (text.length < 80 || text.length > 1500) {
-           console.log(`[STEP 4] Ignored. Reason: Invalid length (${text.length} chars).`);
-           return false;
-        }
-        
-        // FIX 5: Exclude diagrams
-        if (isDiagram(text)) {
-           console.log(`[STEP 4] Ignored. Reason: Detected as diagram (>40% box drawing characters).`);
-           return false;
-        }
-        
-        // FIX 3: Calculate score
-        const score = calculateImportanceScore(text);
-        
-        // FIX 4: UI Fallback Debug Mode
-        // We bypass the heuristic threshold completely for testing!
-        console.log(`[STEP 4] UI DEBUG MODE ACTIVE. Score was ${score}. Bypassing heuristics and Groq.`);
-        return true; 
-      });
-
-      if (candidateNodes.length > 0) {
-        console.log(`[STEP 2] Found ${candidateNodes.length} candidate assistant paragraphs.`);
-        const nodesToProcess = candidateNodes.slice(0, 5); // Allow up to 5 highlights in debug mode
-        nodesToProcess.forEach((node, i) => {
-          const text = node.innerText.trim();
-          suggestionCache.add(text); 
-          
-          // STEP 10: FALLBACK TEST OVERRIDE
-          console.log("[STEP 10] Triggering Fallback UI Test instead of API");
-          createInlineSuggestion(node, text, {
-             memory_type: "Test Suggestion",
-             importance_score: 100,
-             reason: "Fallback hardcoded UI test",
-             should_save: true
-          });
-          
-          // analyzeNode(node, text); // Disabled for UI Test
-        });
-      } else {
-        console.log("[STEP 2] No viable assistant paragraphs found in this mutation block.");
       }
-    }, 1500);
-  });
-
-  observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+  }
+  return (score > 0.3) || text.includes('===') || text.includes('---') || hasStandalone;
 }
 
-function analyzeNode(node, text) {
-  console.log(`[STEP 5] Sending to Groq:\nPrompt: ${text}`);
-  chrome.runtime.sendMessage({ action: 'ANALYZE_TEXT', text: text }, (response) => {
-    if (response && response.success && response.data) {
-      const data = response.data;
-      if (data.is_duplicate) {
-         console.log(`[STEP 5] Groq returned Duplicate.`);
-         return;
+function isGenerating() {
+  const stopBtn = document.querySelector('button[aria-label*="Stop"], button[data-testid*="stop"], button svg rect');
+  if (stopBtn) return true;
+  if (document.querySelector('.result-streaming')) return true;
+  return false;
+}
+
+function getLatestAssistantContainer() {
+  const all = Array.from(document.querySelectorAll('[data-message-author-role="assistant"], .markdown'));
+  const topmost = all.filter(el => {
+    if (el.tagName === 'FORM' || el.isContentEditable) return false;
+    let curr = el.parentNode;
+    while (curr && curr !== document.body) {
+      if (curr.getAttribute && curr.getAttribute('data-message-author-role') === 'assistant') {
+        return false;
       }
-      if (data.analysis) {
-        console.log(`[STEP 5] Groq Response:\nConfidence: ${data.analysis.importance_score}\nMemory Type: ${data.analysis.memory_type}\nReason: ${data.analysis.reason}`);
-        if (data.analysis.importance_score > 50 && data.analysis.should_save) {
-          createInlineSuggestion(node, text, data.analysis);
-        } else {
-          console.log("[STEP 5] Ignored: Confidence too low or should_save is false.");
-        }
+      if (curr.classList && curr.classList.contains('markdown')) {
+        return false;
       }
-    } else {
-      console.log(`[STEP 5] Groq Request Failed:`, response);
+      curr = curr.parentNode;
     }
+    return true;
   });
+  
+  return topmost.length > 0 ? topmost[topmost.length - 1] : null;
 }
 
-function createInlineSuggestion(node, text, analysis) {
-  if (!document.body.contains(node)) {
-     console.log("[STEP 7] Failed: Node is no longer in DOM.");
-     return;
-  }
-  if (activeOverlays.has(node)) {
-     console.log("[STEP 7] Failed: Node already has an overlay.");
-     return;
-  }
-
-  console.log("[STEP 6] Creating overlay components...");
-
-  const overlay = document.createElement('div');
-  overlay.className = 'overlay';
+function injectProactiveChip(para, container, analysisData) {
+  para.style.position = 'relative';
   
-  const rect = node.getBoundingClientRect();
-  console.log(`[STEP 7] Bounding Client Rect:\nTop: ${rect.top}\nLeft: ${rect.left}\nWidth: ${rect.width}\nHeight: ${rect.height}`);
+  // Set margin-bottom to clear space for the horizontal toolbar below the paragraph
+  para.style.marginBottom = '42px';
   
-  if (rect.width === 0 || rect.height === 0) {
-      console.log("[STEP 7] Warning: Bounding rect has 0 width or height. It might be off-screen or display:none.");
-  }
-
-  // Remove the strict CSS override and use real positioning 
-  overlay.style.top = rect.top + 'px';
-  overlay.style.left = rect.left + 'px';
-  overlay.style.height = rect.height + 'px';
-
-  console.log("[STEP 6] Creating chip...");
   const chip = document.createElement('div');
-  chip.className = 'chip';
+  chip.className = 'contextos-proactive-chip';
+  chip.style.position = 'absolute';
+  chip.style.top = 'calc(100% + 4px)';
+  chip.style.right = '0px';
   
-  const title = document.createElement('div');
-  title.className = 'chip-title';
-  title.innerHTML = `💡 ${analysis.memory_type} detected`;
+  // Premium flat horizontal toolbar style
+  chip.style.backgroundColor = '#151a22';
+  chip.style.border = '1px solid #2d3748';
+  chip.style.color = '#cbd5e1';
+  chip.style.borderRadius = '6px';
+  chip.style.padding = '6px 12px';
+  chip.style.fontSize = '11px';
+  chip.style.fontFamily = 'Inter, system-ui, -apple-system, sans-serif';
+  chip.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.15), 0 2px 4px -1px rgba(0, 0, 0, 0.1)';
+  chip.style.display = 'flex';
+  chip.style.flexDirection = 'column';
+  chip.style.zIndex = '999';
+  chip.style.pointerEvents = 'auto';
+  chip.style.width = '100%';
+  chip.style.boxSizing = 'border-box';
+  chip.style.transition = 'all 0.2s ease';
   
-  const actions = document.createElement('div');
-  actions.className = 'chip-actions';
+  // Header Row grouping left info block and buttons side by side
+  const headerRow = document.createElement('div');
+  headerRow.style.display = 'flex';
+  headerRow.style.alignItems = 'center';
+  headerRow.style.justifyContent = 'space-between';
+  headerRow.style.width = '100%';
+  headerRow.style.gap = '12px';
   
-  const saveBtn = document.createElement('button');
-  saveBtn.className = 'save';
-  saveBtn.textContent = 'Save';
+  const leftBlock = document.createElement('div');
+  leftBlock.style.display = 'flex';
+  leftBlock.style.alignItems = 'center';
+  leftBlock.style.gap = '6px';
+  leftBlock.style.overflow = 'hidden';
+  leftBlock.style.textOverflow = 'ellipsis';
+  leftBlock.style.whiteSpace = 'nowrap';
   
-  const dismissBtn = document.createElement('button');
-  dismissBtn.className = 'dismiss';
-  dismissBtn.textContent = 'Dismiss';
+  const icon = document.createElement('span');
+  icon.innerHTML = '💡';
   
-  const whyBtn = document.createElement('button');
-  whyBtn.className = 'why';
-  whyBtn.textContent = 'Why?';
+  const label = document.createElement('span');
+  label.style.fontWeight = 'bold';
+  label.style.color = '#10b981';
+  label.innerText = `Suggested ${analysisData.memory_type || 'Memory'}:`;
   
-  const whyTooltip = document.createElement('div');
-  whyTooltip.className = 'why-tooltip';
-  whyTooltip.innerHTML = `<strong>Confidence:</strong> ${analysis.importance_score}%<br/><br/><strong>Reason:</strong> ${analysis.reason}`;
-
-  whyBtn.onmouseenter = () => whyTooltip.classList.add('show');
-  whyBtn.onmouseleave = () => whyTooltip.classList.remove('show');
-
-  saveBtn.onclick = () => {
-    saveBtn.textContent = 'Saving...';
+  const summaryText = document.createElement('span');
+  summaryText.style.color = '#e2e8f0';
+  summaryText.innerText = analysisData.summary || '';
+  
+  leftBlock.appendChild(icon);
+  leftBlock.appendChild(label);
+  leftBlock.appendChild(summaryText);
+  headerRow.appendChild(leftBlock);
+  
+  const buttonRow = document.createElement('div');
+  buttonRow.style.display = 'flex';
+  buttonRow.style.gap = '6px';
+  buttonRow.style.flexShrink = '0';
+  
+  // Create a container for the reasoning explanation (hidden by default)
+  const whyReasonDiv = document.createElement('div');
+  whyReasonDiv.style.display = 'none';
+  whyReasonDiv.style.borderTop = '1px solid #2d3748';
+  whyReasonDiv.style.paddingTop = '6px';
+  whyReasonDiv.style.marginTop = '6px';
+  whyReasonDiv.style.color = '#9ca3af';
+  whyReasonDiv.style.fontSize = '10.5px';
+  whyReasonDiv.style.lineHeight = '1.4';
+  whyReasonDiv.style.whiteSpace = 'normal';
+  whyReasonDiv.innerText = analysisData.reason || 'No explanation provided.';
+  
+  function createPillButton(text, bgColor, textColor, borderColor, onClick) {
+    const btn = document.createElement('button');
+    btn.innerText = text;
+    btn.style.backgroundColor = bgColor;
+    btn.style.color = textColor;
+    btn.style.border = borderColor ? `1px solid ${borderColor}` : 'none';
+    btn.style.borderRadius = '4px';
+    btn.style.padding = '3px 8px';
+    btn.style.fontSize = '9.5px';
+    btn.style.fontWeight = 'bold';
+    btn.style.cursor = 'pointer';
+    btn.style.transition = 'all 0.15s ease';
+    btn.addEventListener('mouseenter', () => {
+      btn.style.opacity = '0.85';
+      if (borderColor) btn.style.borderColor = textColor;
+    });
+    btn.addEventListener('mouseleave', () => {
+      btn.style.opacity = '1';
+      if (borderColor) btn.style.borderColor = borderColor;
+    });
+    btn.addEventListener('click', onClick);
+    return btn;
+  }
+  
+  // 2. Save Button - Hooks up the actual SAVE_MEMORY endpoint
+  const saveBtn = createPillButton('SAVE', '#10b981', '#ffffff', null, (e) => {
+    e.stopPropagation();
+    saveBtn.innerText = 'SAVING...';
     saveBtn.disabled = true;
     
     chrome.runtime.sendMessage({
-      action: 'SAVE_MEMORY', 
-      text: text,
+      action: 'SAVE_MEMORY',
+      text: analysisData.summary || para.innerText.trim(),
+      source: window.location.hostname,
       metadata: {
-        url: window.location.href,
-        title: document.title,
-        domain: window.location.hostname,
-        timestamp: new Date().toISOString()
-      },
-      source: window.location.hostname
+        memory_type: analysisData.memory_type,
+        importance_score: analysisData.importance_score,
+        reason: analysisData.reason,
+        captured_from: window.location.href,
+        raw_text: para.innerText.trim()
+      }
     }, (res) => {
-      chip.innerHTML = `<div class="chip-title" style="color: #34d399">✓ Saved to ContextOS</div>`;
-      overlay.style.animation = 'none';
-      overlay.style.borderLeftColor = '#34d399';
-      setTimeout(() => {
-        overlay.remove();
-        activeOverlays.delete(node);
-      }, 2000);
+      if (res && res.success) {
+        saveBtn.innerText = '✓ SAVED';
+        saveBtn.style.backgroundColor = '#059669';
+        console.log("[ContextOS] Memory saved successfully:", res.data);
+        
+        // Auto-close overlay after 2 seconds
+        setTimeout(() => {
+          chip.style.opacity = '0';
+          chip.style.transform = 'scale(0.95)';
+          setTimeout(() => {
+            chip.remove();
+            activeOverlays.delete(para);
+            para.style.marginBottom = '';
+          }, 200);
+        }, 2000);
+      } else {
+        saveBtn.innerText = 'FAILED';
+        saveBtn.style.backgroundColor = '#dc2626';
+        saveBtn.disabled = false;
+        console.error("[ContextOS] Memory save failed:", res ? res.error : "Unknown error");
+      }
     });
-  };
-
-  dismissBtn.onclick = () => {
-    overlay.remove();
-    activeOverlays.delete(node);
-  };
-
-  actions.appendChild(saveBtn);
-  actions.appendChild(dismissBtn);
-  actions.appendChild(whyBtn);
+  });
   
-  chip.appendChild(title);
-  chip.appendChild(actions);
-  chip.appendChild(whyTooltip);
+  // 3. Dismiss Button
+  const dismissBtn = createPillButton('DISMISS', 'transparent', '#9ca3af', '#374151', (e) => {
+    e.stopPropagation();
+    chip.remove();
+    activeOverlays.delete(para);
+    para.style.marginBottom = '';
+  });
   
-  overlay.appendChild(chip);
-  shadowRoot.appendChild(overlay);
+  // 4. Why? Button - Toggles the reasoning explanation block inline
+  const whyBtn = createPillButton('WHY?', 'transparent', '#9ca3af', '#374151', (e) => {
+    e.stopPropagation();
+    if (whyReasonDiv.style.display === 'none') {
+      whyReasonDiv.style.display = 'block';
+      // Increase paragraph bottom margin to clear space for the expanded toolbar height
+      para.style.marginBottom = '98px';
+    } else {
+      whyReasonDiv.style.display = 'none';
+      para.style.marginBottom = '42px';
+    }
+  });
   
-  console.log("[STEP 6] Shadow DOM attached successfully.");
+  buttonRow.appendChild(whyBtn);
+  buttonRow.appendChild(dismissBtn);
+  buttonRow.appendChild(saveBtn);
+  headerRow.appendChild(buttonRow);
   
-  activeOverlays.set(node, overlay);
+  chip.appendChild(headerRow);
+  chip.appendChild(whyReasonDiv);
+  
+  para.appendChild(chip);
+  activeOverlays.set(para, chip);
+  console.log("[ContextOS] Proactive memory suggestion chip injected below paragraph.");
 }
+
+function triggerAnalysis() {
+  const container = getLatestAssistantContainer();
+  if (!container) {
+    console.log("[ContextOS] No assistant container found.");
+    return;
+  }
+  
+  const text = container.innerText.trim();
+  console.log("==========================================");
+  console.log("[ContextOS] READ ASSISTANT MESSAGE CONTENT:");
+  console.log(text);
+  console.log("==========================================");
+  
+  const paragraphs = Array.from(container.querySelectorAll('p, pre'));
+  const validParas = paragraphs.filter(p => {
+    const pText = p.innerText.trim();
+    const isCode = isInsideCodeBlock(p) || p.tagName === 'PRE';
+    const isDiag = isDiagram(pText);
+    
+    console.log(`[ContextOS] Paragraph check - isCode: ${isCode}, isDiag: ${isDiag}, text: "${pText.substring(0, 40).replace(/\n/g, ' ')}..."`);
+    
+    return pText.length > 30 && !isCode && !isDiag && !p.isContentEditable;
+  });
+  
+  const targetParas = validParas.slice(0, 3);
+  console.log(`[ContextOS] Selected ${targetParas.length} paragraphs for parallel analysis.`);
+
+  targetParas.forEach(targetPara => {
+    const paraText = targetPara.innerText.trim();
+    console.log(`[ContextOS] Dispatching analysis for: "${paraText.substring(0, 40)}..."`);
+    
+    chrome.runtime.sendMessage({ action: 'ANALYZE_TEXT', text: paraText }, (response) => {
+      console.log(`[ContextOS] Response received for: "${paraText.substring(0, 40)}...":`, response);
+      if (response && response.success && response.data && response.data.analysis) {
+        const analysis = response.data.analysis;
+        console.log(`[ContextOS] should_save: ${analysis.should_save}, importance: ${analysis.importance_score}`);
+        if (analysis.should_save) {
+          injectProactiveChip(targetPara, container, analysis);
+        }
+      }
+    });
+  });
+}
+
+function checkState() {
+  const active = isGenerating();
+  
+  if (active && !wasGenerating) {
+    wasGenerating = true;
+    console.log("[ContextOS] Streaming started...");
+  } else if (!active && wasGenerating) {
+    wasGenerating = false;
+    console.log("[ContextOS] Streaming finished!");
+    triggerAnalysis();
+  }
+}
+
+setInterval(checkState, 1000);

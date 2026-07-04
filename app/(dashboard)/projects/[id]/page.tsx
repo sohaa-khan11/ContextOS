@@ -39,6 +39,10 @@ export default function ProjectMemoryInterface({
 
     const timer = setTimeout(() => setIsMounted(true), 1500);
     
+    const pollInterval = setInterval(() => {
+        document.dispatchEvent(new CustomEvent('memory-updated'));
+    }, 3000);
+    
     const handleMemoryUpdate = () => {
         fetchGraph(projectId);
     };
@@ -46,6 +50,7 @@ export default function ProjectMemoryInterface({
     
     return () => {
         clearTimeout(timer);
+        clearInterval(pollInterval);
         document.removeEventListener('memory-updated', handleMemoryUpdate);
     };
   }, [projectId, fetchGraph]);

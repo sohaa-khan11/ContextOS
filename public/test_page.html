@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>ContextOS Extension Test Page</title>
+</head>
+<body>
+  <h1>ContextOS Extension Heuristics Tester</h1>
+  <button id="triggerMutations">Trigger Mutations (Insert Test Paragraphs)</button>
+  <div id="chat-container"></div>
+
+  <script>
+    const testCases = [
+      {
+        id: 1,
+        name: "Normal paragraph",
+        text: "We are currently moving to a new cloud provider because the current bills are too expensive and we need more reliable database hosting."
+      },
+      {
+        id: 2,
+        name: "ASCII architecture diagram",
+        text: "Internet\n   ↓\nLoad Balancer\n   ↓\nDocker Containers\n   ↓\nFastAPI"
+      },
+      {
+        id: 3,
+        name: "Code block",
+        text: "```javascript\nconst express = require('express');\nconst app = express();\napp.listen(3000);\n```"
+      },
+      {
+        id: 4,
+        name: "Deployment flowchart",
+        text: "Client | HTTPS | Backend\n┌───────┐      ┌────────┐\n│ User  │ ===> │ Server │\n└───────┘      └────────┘"
+      },
+      {
+        id: 5,
+        name: "Decision paragraph",
+        text: "We chose FastAPI because the team needed rapid async development and native OpenAPI doc generation out of the box."
+      },
+      {
+        id: 6,
+        name: "Risk paragraph",
+        text: "A major risk is our single point of failure in the redis cache instance; if it goes down, session validation fails for all active users."
+      },
+      {
+        id: 7,
+        name: "TODO paragraph",
+        text: "TODO: We must configure database replication before launching in production to prevent single point of failure scenarios."
+      }
+    ];
+
+    document.getElementById('triggerMutations').addEventListener('click', () => {
+      const container = document.getElementById('chat-container');
+      testCases.forEach(tc => {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'markdown';
+        messageDiv.setAttribute('data-message-author-role', 'assistant');
+        messageDiv.style.border = '1px solid #ccc';
+        messageDiv.style.margin = '10px';
+        messageDiv.style.padding = '10px';
+        
+        const heading = document.createElement('h3');
+        heading.innerText = `Test ${tc.id}: ${tc.name}`;
+        messageDiv.appendChild(heading);
+
+        const p = document.createElement('p');
+        p.innerText = tc.text;
+        messageDiv.appendChild(p);
+
+        container.appendChild(messageDiv);
+      });
+    });
+  </script>
+</body>
+</html>

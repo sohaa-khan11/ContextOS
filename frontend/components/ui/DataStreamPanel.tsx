@@ -11,6 +11,81 @@ type DataItem = {
   content: string;
 };
 
+const MemoryCard = ({ item, onArchive }: { item: any, onArchive: (id: string, type: string) => void }) => {
+  const [expanded, setExpanded] = useState(false);
+  
+  // Parse the Cognee statement format
+  let cleanText = item.content.replace(/\[Captured from: .*?\]/, '').trim();
+  
+  let type = "";
+  let content = cleanText;
+  let rationale = "";
+  let rejected = "";
+  
+  const typeMatch = cleanText.match(/^([A-Z\s]+):\s*(.*?)(?=\s*RATIONALE:|\s*CONSIDERED AND REJECTED:|\s*STATUS:|\s*SOURCE:|$)/);
+  if (typeMatch) {
+      type = typeMatch[1];
+      content = typeMatch[2];
+  }
+  
+  const rationaleMatch = cleanText.match(/RATIONALE:\s*(.*?)(?=\s*CONSIDERED AND REJECTED:|\s*STATUS:|\s*SOURCE:|$)/);
+  if (rationaleMatch) rationale = rationaleMatch[1];
+  
+  const rejectedMatch = cleanText.match(/CONSIDERED AND REJECTED:\s*(.*?)(?=\s*STATUS:|\s*SOURCE:|$)/);
+  if (rejectedMatch) rejected = rejectedMatch[1];
+
+  content = content.replace(/\.$/, '');
+  rationale = rationale.replace(/\.$/, '');
+  rejected = rejected.replace(/\.$/, '');
+
+  return (
+    <motion.div
+      layout
+      initial={{ opacity: 0, x: 20 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, scale: 0.95, filter: "blur(5px)" }}
+      className="group relative p-3 rounded-xl bg-white/5 border border-white/5 hover:border-white/20 hover:bg-white/10 transition-colors"
+    >
+      <div className="pr-6">
+        <h4 className="text-[13px] font-medium text-white/90 leading-snug">{content}</h4>
+        
+        {rationale && (
+          <div className="mt-2">
+            <span className="text-[10px] font-mono text-emerald-500/70 uppercase tracking-wider block mb-1">Reason</span>
+            <p className={`text-xs text-white/60 leading-relaxed ${!expanded ? 'line-clamp-2' : ''}`}>
+              {rationale}
+            </p>
+          </div>
+        )}
+
+        {expanded && rejected && (
+          <div className="mt-2">
+            <span className="text-[10px] font-mono text-red-400/70 uppercase tracking-wider block mb-1">Alternative Rejected</span>
+            <p className="text-xs text-white/60 leading-relaxed">{rejected}</p>
+          </div>
+        )}
+
+        {rationale && rationale.length > 80 && (
+          <button 
+            onClick={() => setExpanded(!expanded)}
+            className="text-[10px] text-white/30 hover:text-white/60 mt-2 font-medium transition-colors"
+          >
+            {expanded ? "View Less" : "View More"}
+          </button>
+        )}
+      </div>
+
+      <button
+        onClick={() => onArchive(item.id, item.type)}
+        className="absolute top-2 right-2 w-6 h-6 rounded-md bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center hover:bg-red-500/20 hover:text-red-400"
+        title="Archive Node (forget)"
+      >
+        <X className="w-3 h-3" />
+      </button>
+    </motion.div>
+  );
+};
+
 export function DataStreamPanel() {
   const params = useParams();
   const projectId = params.id as string;
@@ -117,58 +192,7 @@ export function DataStreamPanel() {
               </motion.div>
             ) : (
               filteredItems.map(item => (
-                <motion.div
-                  key={item.id}
-                  layout
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, scale: 0.95, filter: "blur(5px)" }}
-                  className="group relative p-3 rounded-xl bg-white/5 border border-white/5 hover:border-white/20 hover:bg-white/10 transition-colors"
-                >
-                  {(() => {
-                    const content = item.content;
-                    const metaMatch = content.match(/\[Captured from: (.*?)\]/);
-                    if (!metaMatch) {
-                      return <p className="text-sm font-light text-white/80 leading-relaxed pr-6">{content}</p>;
-                    }
-                    
-                    const cleanContent = content.replace(/\[Captured from: .*?\]/, '').trim();
-                    const metaStr = metaMatch[1];
-                    const domainMatch = metaStr.match(/domain: ([^\s]+)/);
-                    const timestampMatch = metaStr.match(/timestamp: ([^\s\]]+)/);
-                    
-                    const domain = domainMatch ? domainMatch[1] : 'unknown';
-                    let timeStr = 'recently';
-                    if (timestampMatch) {
-                      try {
-                          timeStr = new Date(timestampMatch[1]).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-                      } catch (e) {}
-                    }
-
-                    return (
-                      <div className="flex flex-col gap-2">
-                        <p className="text-sm font-light text-white/80 leading-relaxed pr-6">{cleanContent}</p>
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="px-2 py-0.5 rounded bg-white/5 border border-white/10 text-[9px] font-mono text-white/40 tracking-wider uppercase">
-                            {domain}
-                          </span>
-                          <span className="text-[9px] font-mono text-white/30 tracking-wider uppercase">
-                            {timeStr}
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })()}
-                  
-                  {/* Archive Button - PRD Required forget() trigger */}
-                  <button
-                    onClick={() => handleArchive(item.id, item.type)}
-                    className="absolute top-2 right-2 p-1.5 rounded-lg opacity-0 group-hover:opacity-100 bg-black/50 text-white/30 hover:text-red-400 hover:bg-red-400/20 transition-all"
-                    title="Archive Node (forget)"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                </motion.div>
+                <MemoryCard key={item.id} item={item} onArchive={handleArchive} />
               ))
             )}
           </AnimatePresence>

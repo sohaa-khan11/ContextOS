@@ -79,13 +79,37 @@ async def remember(req: RememberRequest):
         logger.error(f"Database failure during duplicate check: {e}")
         raise HTTPException(status_code=500, detail="Database failure")
 
-    # 2. Groq Extraction
-    try:
-        units = await groq_client.extract_memory_units(req.raw_text)
-        logger.info(f"Groq extraction successful: extracted {len(units)} units")
-    except Exception as e:
-        logger.error(f"Groq failure: {e}")
-        raise HTTPException(status_code=500, detail=f"Groq extraction failed: {str(e)}")
+    # Check if analysis is already provided in metadata to skip Groq extraction
+    units = []
+    analysis = None
+    if req.metadata and isinstance(req.metadata, dict):
+        analysis = req.metadata.get("analysis")
+        
+    if analysis and isinstance(analysis, dict) and analysis.get("should_save"):
+        logger.info("Bypassing Groq extraction: using analysis passed from extension")
+        from memory_units import MemoryUnit
+        
+        # Map raw string type to literal constraints of MemoryUnit
+        m_type = analysis.get("memory_type", "Fact")
+        if m_type not in ["Decision", "Task", "Risk", "Goal", "OpenQuestion", "Fact"]:
+            m_type = "Fact"
+            
+        unit = MemoryUnit(
+            type=m_type,
+            content=req.raw_text,
+            rationale=analysis.get("reason", "Captured from extension analysis"),
+            status="active",
+            source=req.source or "extension"
+        )
+        units = [unit]
+    else:
+        # 2. Groq Extraction
+        try:
+            units = await groq_client.extract_memory_units(req.raw_text)
+            logger.info(f"Groq extraction successful: extracted {len(units)} units")
+        except Exception as e:
+            logger.error(f"Groq failure: {e}")
+            raise HTTPException(status_code=500, detail=f"Groq extraction failed: {str(e)}")
 
     if not units:
         return {"remembered": 0, "skipped": 0, "summary": "No relevant units extracted"}
@@ -97,11 +121,7 @@ async def remember(req: RememberRequest):
             unit.source = req.source or unit.source
             statement = cognee_client.format_unit_to_statement(unit)
             
-            if req.metadata:
-                # Embed metadata natively into the statement string so Cognee indexes it
-                meta_str = " ".join([f"{k}: {v}" for k, v in req.metadata.items()])
-                statement += f" [Captured from: {meta_str}]"
-                
+            # BUG 2 FIX: We no longer inject URL/metadata natively into the string to prevent vector pollution
             await cognee_client.remember_unit(req.project_id, statement)
             remembered_count += 1
         logger.info(f"Cognee remember successful for {remembered_count} units")
