@@ -176,12 +176,16 @@ function injectProactiveChip(para, container, analysisData) {
     
     chrome.runtime.sendMessage({
       action: 'SAVE_MEMORY',
-      text: analysisData.summary || para.innerText.trim(),
+      text: para.innerText.trim(),
       source: window.location.hostname,
       metadata: {
-        memory_type: analysisData.memory_type,
-        importance_score: analysisData.importance_score,
-        reason: analysisData.reason,
+        analysis: {
+          should_save: true,
+          memory_type: analysisData.memory_type,
+          importance_score: analysisData.importance_score,
+          reason: analysisData.reason,
+          summary: analysisData.summary
+        },
         captured_from: window.location.href,
         raw_text: para.innerText.trim()
       }

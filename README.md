@@ -9,19 +9,15 @@
 
 ---
 
-## 📖 The ContextOS Index
+## 📖 Complete Documentation Index
 
-To dive deep into specific aspects of the system, explore the detailed guides in the `docs/` folder:
+To explore the architecture, decisions, and walkthroughs, check out the streamlined guides inside the `docs/` folder:
 
-* 🏗️ **[Architecture Specification](file:///C:/Users/sohar/Projects/ContextOS/docs/ARCHITECTURE.md)**: High-level systems design and sequence diagrams.
-* 🔌 **[API Reference](file:///C:/Users/sohar/Projects/ContextOS/docs/API_REFERENCE.md)**: Endpoints, payload schemas, and mock response JSONs.
-* 📂 **[Project Structure](file:///C:/Users/sohar/Projects/ContextOS/docs/PROJECT_STRUCTURE.md)**: Directory layout and module responsibilities.
-* 🔄 **[Memory Pipeline](file:///C:/Users/sohar/Projects/ContextOS/docs/MEMORY_PIPELINE.md)**: Lifecycle stages from ambient capture to graph traversal.
-* 🎥 **[Video Guide](file:///C:/Users/sohar/Projects/ContextOS/docs/VIDEO_GUIDE.md)** & **[Video Script](file:///C:/Users/sohar/Projects/ContextOS/docs/VIDEO_SCRIPT.md)**: Demo preparation and word-for-word spoken presentation script.
-* 📋 **[Demo Checklist](file:///C:/Users/sohar/Projects/ContextOS/docs/DEMO_CHECKLIST.md)**: Pre-flight checklist to run before recording or presenting.
-* 🎙️ **[Presentation Q&A Guide](file:///C:/Users/sohar/Projects/ContextOS/docs/PRESENTATION_GUIDE.md)**: Strong technical answers to common judge questions.
-* 🤖 **[AI Programmers Workflow](file:///C:/Users/sohar/Projects/ContextOS/docs/AI_WORKFLOW.md)**: Prompting guidelines and task division between ChatGPT, Claude, and Antigravity.
-* 🏆 **[Devpost Submission Template](file:///C:/Users/sohar/Projects/ContextOS/docs/HACKATHON_SUBMISSION.md)**: Clean copy-paste ready template for the hackathon submission form.
+* 🏗️ **[Architecture Specification](file:///C:/Users/sohar/Projects/ContextOS/docs/ARCHITECTURE.md)**: High-level systems design and sequence flow diagrams.
+* 📝 **[Technical Documentation](file:///C:/Users/sohar/Projects/ContextOS/docs/TECHNICAL_DOCUMENTATION.md)**: Walkthrough of the folder structures, API endpoints, and memory pipeline lifecycle.
+* 💡 **[Project Decisions & Justifications](file:///C:/Users/sohar/Projects/ContextOS/docs/PROJECT_DECISIONS.md)**: The "Why" behind FastAPI vs. Flask, Cognee vs. Vector RAG, and Extension vs. Web Apps.
+* 🎥 **[Video Demo & Presentation Guide](file:///C:/Users/sohar/Projects/ContextOS/docs/VIDEO_GUIDE.md)**: Word-for-word recording script, pre-demo checklists, and technical Judge Q&As.
+* 🏆 **[Hackathon Submission Guide](file:///C:/Users/sohar/Projects/ContextOS/docs/HACKATHON_SUBMISSION.md)**: Copy-paste ready Devpost forms, innovation summaries, and lessons learned.
 
 ---
 
@@ -35,7 +31,7 @@ npm install
 # Run the development server
 npm run dev
 ```
-*Resolves to `http://localhost:3000`*
+*Dashboard running on `http://localhost:3000`*
 
 ### 2. Run the Python FastAPI Backend
 Open a new terminal:
@@ -52,7 +48,7 @@ source venv/bin/activate
 pip install -r requirements.txt
 uvicorn main:app --port 8000
 ```
-*Resolves to `http://localhost:8000`*
+*Backend running on `http://localhost:8000`*
 
 ### 3. Load the Chrome Extension
 1. Open Chrome and navigate to `chrome://extensions/`.

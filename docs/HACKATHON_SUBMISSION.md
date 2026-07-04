@@ -8,7 +8,6 @@ This document contains copy-paste ready summaries, technical details, and projec
 
 * **Project Title**: ContextOS
 * **Tagline**: The ambient, cross-platform memory layer for AI-assisted development.
-* **Devpost Link**: `[PLACEHOLDER]`
 * **GitHub Link**: `https://github.com/sohaa-khan11/ContextOS.git`
 
 ---
@@ -29,8 +28,8 @@ Developers can explore their project visually in a stunning 3D spatial memory vi
 ### D. Technical Complexity & Architecture
 "ContextOS features a high-performance, hybrid RAG + Knowledge Graph architecture:
 1. **Frontend Dashboard**: Built using Next.js 16 (App Router) and Tailwind CSS, featuring a Three.js (React Three Fiber) spatial memory dashboard that displays Neo4j nodes and edges in real-time using Server-Sent Events (SSE).
-2. **Orchestration Backend**: A Python FastAPI service that executes MD5 hash checks on text elements to prevent graph database duplication. It extracts structured JSON data using Groq (`llama3-8b-8192`) and manages Neo4j and Qdrant ingestion via the Cognee Cloud SDK.
-3. **Chrome Extension (Manifest V3)**: A lightweight, unpacked client that monitors ChatGPT text stream completion, sanitizes text (removes code and ASCII diagrams), and inserts absolute-positioned toolbars below paragraphs for seamless context saving and prompt injections."
+2. **Orchestration Backend**: A Python FastAPI service that executes MD5 hash checks on text elements to prevent graph database duplication. It extracts structured JSON data using Groq (`llama3-8b-8192`) and manages Neo4j and Qdrant ingestion via the Cognee Python SDK.
+3. **Chrome Extension (Manifest V3)**: A lightweight client that monitors ChatGPT text stream completion, sanitizes text (removes code and ASCII diagrams), and inserts absolute-positioned toolbars below paragraphs for seamless context saving and prompt injections."
 
 ### E. Cognee Integration Highlight
 "ContextOS leverages Cognee Cloud to solve the context window limitations of traditional vector RAG. Instead of chunking documents into disconnected vectors, Cognee structures captured memories into semantic graph triplets. This allows ContextOS to perform complex graph traversals to retrieve the complete history of developer decisions and dependencies (e.g. `[FastAPI] -> (REPLACES) -> [Flask]`), resulting in highly structured and contextually complete prompts."
