@@ -1,68 +1,36 @@
 const API_BASE = 'http://localhost:3000/api';
 
-// Sync active project ID from dashboard URL automatically
-chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-  if (changeInfo.url) {
-    try {
-      const url = new URL(changeInfo.url);
-      if ((url.hostname === 'localhost' || url.hostname === '127.0.0.1') && url.port === '3000' && url.pathname.startsWith('/projects/')) {
-        const parts = url.pathname.split('/');
-        const projectId = parts[parts.length - 1];
-        if (projectId && projectId.length === 36) { // check if valid UUID length
-          chrome.storage.local.set({ activeProjectId: projectId }, () => {
-            console.log("[Extension Background] Active project updated from dashboard URL:", projectId);
-          });
-        }
-      }
-    } catch(e) {
-      console.error("Error parsing tab URL:", e);
-    }
-  }
-});
-
-// Fetch the default project to use for background analysis
-async function getActiveProject() {
-  try {
-    const data = await chrome.storage.local.get('activeProjectId');
-    if (data.activeProjectId) {
-      return data.activeProjectId;
-    }
-  } catch(e) {
-    console.error("Failed to read activeProjectId from storage", e);
-  }
-
-  try {
-    const res = await fetch(`${API_BASE}/projects`, {
-      headers: { 'Authorization': 'Bearer mock-token' }
-    });
-    const projects = await res.json();
-    if (projects && projects.length > 0) {
-      const defaultId = projects[0].id;
-      try {
-        await chrome.storage.local.set({ activeProjectId: defaultId });
-      } catch(e) {}
-      return defaultId;
-    }
-  } catch (e) {
-    console.error("Failed to fetch projects in background", e);
-  }
-  return null;
-}
-
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'ANALYZE_TEXT') {
-    handleAnalysis(request.text).then(sendResponse);
+    handleAnalysis(request.text, request.projectId).then(sendResponse);
     return true; // Keep message channel open for async response
   }
   if (request.action === 'SAVE_MEMORY') {
-    handleSaveMemory(request.text, request.metadata, request.source).then(sendResponse);
+    handleSaveMemory(request.text, request.metadata, request.source, request.projectId).then(sendResponse);
+    return true;
+  }
+  if (request.action === 'GET_PROJECTS') {
+    handleGetProjects().then(sendResponse);
     return true;
   }
 });
 
-async function handleAnalysis(text) {
-  const projectId = await getActiveProject();
-  if (!projectId) return { error: "No active project" };
+async function handleGetProjects() {
+  try {
+    const res = await fetch(`${API_BASE}/projects`, {
+      headers: { 'Authorization': 'Bearer mock-token' }
+    });
+    if (!res.ok) throw new Error("Failed to fetch projects");
+    const projects = await res.json();
+    return { success: true, data: projects };
+  } catch (e) {
+    console.error("GET_PROJECTS error:", e);
+    return { error: e.message };
+  }
+}
+
+async function handleAnalysis(text, projectId) {
+  if (!projectId) return { error: "No active project in this tab" };
 
   try {
     const res = await fetch(`${API_BASE}/extension/analyze`, {
@@ -85,9 +53,8 @@ async function handleAnalysis(text) {
   }
 }
 
-async function handleSaveMemory(text, metadata, source) {
-  const projectId = await getActiveProject();
-  if (!projectId) return { error: "No active project" };
+async function handleSaveMemory(text, metadata, source, projectId) {
+  if (!projectId) return { error: "No active project in this tab" };
 
   try {
     const res = await fetch(`${API_BASE}/extension/capture`, {
@@ -103,11 +70,14 @@ async function handleSaveMemory(text, metadata, source) {
         metadata: metadata
       })
     });
-    if (!res.ok) throw new Error("Capture failed");
+    if (!res.ok) {
+        const errText = await res.text();
+        throw new Error(`Capture failed (HTTP ${res.status}): ${errText}`);
+    }
     const data = await res.json();
     return { success: true, data };
   } catch (e) {
-    console.error(e);
+    console.error("handleSaveMemory Error:", e);
     return { error: e.message };
   }
 }

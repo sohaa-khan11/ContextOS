@@ -36,8 +36,10 @@ function PremiumNebulaBackground({ isHub }: { isHub: boolean }) {
   useFrame((state) => {
     if (groupRef.current) {
       groupRef.current.children.forEach((child, i) => {
-        child.rotation.y = state.clock.elapsedTime * layers[i].speed;
-        child.rotation.x = Math.sin(state.clock.elapsedTime * layers[i].speed * 1.5) * 0.05;
+        if (layers[i]) {
+            child.rotation.y = state.clock.elapsedTime * layers[i].speed;
+            child.rotation.x = Math.sin(state.clock.elapsedTime * layers[i].speed * 1.5) * 0.05;
+        }
       });
     }
     const targetOpacity = isHub ? 1 : 0;
@@ -96,11 +98,12 @@ function ProjectKnowledgeGraph({ color, active, position, projectId }: { color: 
             (Math.random() - 0.5) * 20,
             (Math.random() - 0.5) * 20
         );
+        const nType = (n.type || "").toLowerCase();
         return { 
             ...n, 
             pos, 
-            color: n.type === "decision" ? "#FF4D67" : n.type === "risk" ? "#facc15" : color,
-            size: n.type === "context" ? Math.random() * 0.1 + 0.05 : 0.25
+            color: nType === "decision" ? "#FF4D67" : nType === "risk" ? "#facc15" : color,
+            size: nType === "context" ? Math.random() * 0.1 + 0.05 : 0.25
         };
     });
     
@@ -134,16 +137,19 @@ function ProjectKnowledgeGraph({ color, active, position, projectId }: { color: 
       {nodes.map((node) => (
         <group key={`pnode-${node.id}`} position={node.pos}>
           <mesh>
-            {node.type === "decision" ? <octahedronGeometry args={[node.size * 2]} /> : 
-             node.type === "risk" ? <icosahedronGeometry args={[node.size * 2]} /> : 
-             <sphereGeometry args={[node.size * 2, 16, 16]} />}
-            <meshBasicMaterial 
+            {(() => {
+              const nType = (node.type || "").toLowerCase();
+              if (nType === "decision") return <octahedronGeometry args={[node.size * 2]} />;
+              if (nType === "risk") return <icosahedronGeometry args={[node.size * 2]} />;
+              return <sphereGeometry args={[node.size * 2, 16, 16]} />;
+            })()}
+            <meshBasicMaterial  
               color={node.color} 
               transparent 
               opacity={0.8}
             />
           </mesh>
-          {node.type !== "context" && (
+          {(node.type || "").toLowerCase() !== "context" && (
             <mesh>
               <sphereGeometry args={[node.size * 3, 16, 16]} />
               <meshBasicMaterial 

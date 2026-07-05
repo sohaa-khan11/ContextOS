@@ -176,6 +176,7 @@ function injectProactiveChip(para, container, analysisData) {
     
     chrome.runtime.sendMessage({
       action: 'SAVE_MEMORY',
+      projectId: sessionStorage.getItem('contextos_project'),
       text: para.innerText.trim(),
       source: window.location.hostname,
       metadata: {
@@ -249,17 +250,14 @@ function injectProactiveChip(para, container, analysisData) {
 }
 
 function triggerAnalysis() {
+  if (sessionStorage.getItem('contextos_active') !== 'true') return;
+
   const container = getLatestAssistantContainer();
   if (!container) {
-    console.log("[ContextOS] No assistant container found.");
     return;
   }
   
   const text = container.innerText.trim();
-  console.log("==========================================");
-  console.log("[ContextOS] READ ASSISTANT MESSAGE CONTENT:");
-  console.log(text);
-  console.log("==========================================");
   
   const paragraphs = Array.from(container.querySelectorAll('p, pre'));
   const validParas = paragraphs.filter(p => {
@@ -267,23 +265,17 @@ function triggerAnalysis() {
     const isCode = isInsideCodeBlock(p) || p.tagName === 'PRE';
     const isDiag = isDiagram(pText);
     
-    console.log(`[ContextOS] Paragraph check - isCode: ${isCode}, isDiag: ${isDiag}, text: "${pText.substring(0, 40).replace(/\n/g, ' ')}..."`);
-    
     return pText.length > 30 && !isCode && !isDiag && !p.isContentEditable;
   });
   
   const targetParas = validParas.slice(0, 3);
-  console.log(`[ContextOS] Selected ${targetParas.length} paragraphs for parallel analysis.`);
 
   targetParas.forEach(targetPara => {
     const paraText = targetPara.innerText.trim();
-    console.log(`[ContextOS] Dispatching analysis for: "${paraText.substring(0, 40)}..."`);
     
-    chrome.runtime.sendMessage({ action: 'ANALYZE_TEXT', text: paraText }, (response) => {
-      console.log(`[ContextOS] Response received for: "${paraText.substring(0, 40)}...":`, response);
+    chrome.runtime.sendMessage({ action: 'ANALYZE_TEXT', text: paraText, projectId: sessionStorage.getItem('contextos_project') }, (response) => {
       if (response && response.success && response.data && response.data.analysis) {
         const analysis = response.data.analysis;
-        console.log(`[ContextOS] should_save: ${analysis.should_save}, importance: ${analysis.importance_score}`);
         if (analysis.should_save) {
           injectProactiveChip(targetPara, container, analysis);
         }
@@ -306,3 +298,184 @@ function checkState() {
 }
 
 setInterval(checkState, 1000);
+
+function initContextOS() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const qsProject = urlParams.get('contextos_project');
+  
+  if (qsProject) {
+    sessionStorage.setItem('contextos_active', 'true');
+    sessionStorage.setItem('contextos_project', qsProject);
+    
+    urlParams.delete('contextos_project');
+    const newUrl = window.location.pathname + (urlParams.toString() ? '?' + urlParams.toString() : '') + window.location.hash;
+    window.history.replaceState({}, '', newUrl);
+  }
+  
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', injectManualWidget);
+  } else {
+    injectManualWidget();
+  }
+}
+
+function injectManualWidget() {
+  const widget = document.createElement('div');
+  widget.className = 'contextos-widget-container';
+  widget.style.position = 'fixed';
+  widget.style.bottom = '24px';
+  widget.style.right = '24px';
+  widget.style.zIndex = '2147483647';
+  widget.style.fontFamily = 'Inter, system-ui, sans-serif';
+  
+  const btn = document.createElement('button');
+  btn.style.backgroundColor = '#151a22';
+  btn.style.color = '#fff';
+  btn.style.border = '1px solid #2d3748';
+  btn.style.borderRadius = '24px';
+  btn.style.padding = '8px 16px';
+  btn.style.cursor = 'pointer';
+  btn.style.boxShadow = '0 4px 12px rgba(0,0,0,0.5)';
+  btn.style.display = 'flex';
+  btn.style.alignItems = 'center';
+  btn.style.gap = '8px';
+  btn.style.fontSize = '12px';
+  btn.style.fontWeight = '500';
+  
+  const statusIndicator = document.createElement('div');
+  statusIndicator.style.width = '8px';
+  statusIndicator.style.height = '8px';
+  statusIndicator.style.borderRadius = '50%';
+  
+  const textSpan = document.createElement('span');
+  
+  const updateBtnUI = () => {
+    const isActive = sessionStorage.getItem('contextos_active') === 'true';
+    statusIndicator.style.backgroundColor = isActive ? '#10b981' : '#ef4444';
+    statusIndicator.style.boxShadow = isActive ? '0 0 8px rgba(16, 185, 129, 0.6)' : 'none';
+    textSpan.innerText = isActive ? 'ContextOS: Active' : 'ContextOS: Off';
+  };
+  
+  updateBtnUI();
+  
+  btn.appendChild(statusIndicator);
+  btn.appendChild(textSpan);
+  
+  const popup = document.createElement('div');
+  popup.style.display = 'none';
+  popup.style.position = 'absolute';
+  popup.style.bottom = '100%';
+  popup.style.right = '0';
+  popup.style.marginBottom = '12px';
+  popup.style.backgroundColor = '#151a22';
+  popup.style.border = '1px solid #2d3748';
+  popup.style.borderRadius = '12px';
+  popup.style.padding = '16px';
+  popup.style.width = '240px';
+  popup.style.boxShadow = '0 8px 24px rgba(0,0,0,0.6)';
+  
+  const title = document.createElement('div');
+  title.innerText = 'Target Project';
+  title.style.color = '#9ca3af';
+  title.style.marginBottom = '12px';
+  title.style.fontSize = '11px';
+  title.style.textTransform = 'uppercase';
+  title.style.letterSpacing = '0.05em';
+  
+  const select = document.createElement('select');
+  select.style.width = '100%';
+  select.style.padding = '8px';
+  select.style.backgroundColor = '#05010a';
+  select.style.color = '#fff';
+  select.style.border = '1px solid #374151';
+  select.style.borderRadius = '6px';
+  select.style.marginBottom = '16px';
+  select.style.fontSize = '13px';
+  select.style.outline = 'none';
+  
+  const toggleBtn = document.createElement('button');
+  toggleBtn.style.width = '100%';
+  toggleBtn.style.padding = '10px';
+  toggleBtn.style.borderRadius = '6px';
+  toggleBtn.style.border = 'none';
+  toggleBtn.style.cursor = 'pointer';
+  toggleBtn.style.fontWeight = 'bold';
+  toggleBtn.style.fontSize = '13px';
+  
+  const updatePopupUI = () => {
+    const isActive = sessionStorage.getItem('contextos_active') === 'true';
+    if (isActive) {
+      toggleBtn.innerText = 'Turn Off Capture';
+      toggleBtn.style.backgroundColor = '#ef4444';
+      toggleBtn.style.color = '#fff';
+    } else {
+      toggleBtn.innerText = 'Enable Proactive Capture';
+      toggleBtn.style.backgroundColor = '#10b981';
+      toggleBtn.style.color = '#fff';
+    }
+  };
+  
+  btn.onclick = (e) => {
+    e.stopPropagation();
+    if (popup.style.display === 'none') {
+      popup.style.display = 'block';
+      updatePopupUI();
+      chrome.runtime.sendMessage({ action: 'GET_PROJECTS' }, (res) => {
+        if (res && res.success) {
+          select.innerHTML = '';
+          res.data.forEach(p => {
+            const opt = document.createElement('option');
+            opt.value = p.id;
+            opt.innerText = p.name;
+            select.appendChild(opt);
+          });
+          const currProject = sessionStorage.getItem('contextos_project');
+          if (currProject) {
+            select.value = currProject;
+          } else if (res.data.length > 0) {
+            select.value = res.data[0].id; // Default to first if none stored
+          }
+        }
+      });
+    } else {
+      popup.style.display = 'none';
+    }
+  };
+  
+  toggleBtn.onclick = () => {
+    const isActive = sessionStorage.getItem('contextos_active') === 'true';
+    if (isActive) {
+      sessionStorage.setItem('contextos_active', 'false');
+    } else {
+      if (select.value) {
+        sessionStorage.setItem('contextos_active', 'true');
+        sessionStorage.setItem('contextos_project', select.value);
+      }
+    }
+    updateBtnUI();
+    updatePopupUI();
+    popup.style.display = 'none';
+  };
+  
+  select.onchange = () => {
+    if (sessionStorage.getItem('contextos_active') === 'true') {
+      sessionStorage.setItem('contextos_project', select.value);
+    }
+  };
+
+  document.addEventListener('click', (e) => {
+    if (!widget.contains(e.target)) {
+      popup.style.display = 'none';
+    }
+  });
+  
+  popup.appendChild(title);
+  popup.appendChild(select);
+  popup.appendChild(toggleBtn);
+  
+  widget.appendChild(btn);
+  widget.appendChild(popup);
+  document.body.appendChild(widget);
+}
+
+initContextOS();

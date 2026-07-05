@@ -157,7 +157,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       // Destination buttons
       document.querySelectorAll('.dest-btn').forEach(btn => {
         btn.addEventListener('click', () => {
-          chrome.tabs.create({ url: btn.dataset.url });
+          const url = new URL(btn.dataset.url);
+          if (projectSelect.value) {
+            url.searchParams.set('contextos_project', projectSelect.value);
+          }
+          chrome.tabs.create({ url: url.toString() });
         });
       });
 

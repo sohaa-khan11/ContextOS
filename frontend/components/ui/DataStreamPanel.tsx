@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { X, Network, AlertTriangle, CheckSquare } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useParams } from "next/navigation";
+import { useGraphStore } from "@frontend/store/useGraphStore";
 
 type DataItem = {
   id: string;
@@ -14,29 +15,36 @@ type DataItem = {
 const MemoryCard = ({ item, onArchive }: { item: any, onArchive: (id: string, type: string) => void }) => {
   const [expanded, setExpanded] = useState(false);
   
-  // Parse the Cognee statement format
-  let cleanText = item.content.replace(/\[Captured from: .*?\]/, '').trim();
+  // Safely extract text content
+  const rawContent = typeof item.content === 'string' ? item.content : JSON.stringify(item.content);
+  let cleanText = rawContent.replace(/\[Captured from: .*?\]/, '').trim();
   
   let type = "";
   let content = cleanText;
   let rationale = "";
   let rejected = "";
   
-  const typeMatch = cleanText.match(/^([A-Z\s]+):\s*(.*?)(?=\s*RATIONALE:|\s*CONSIDERED AND REJECTED:|\s*STATUS:|\s*SOURCE:|$)/);
-  if (typeMatch) {
-      type = typeMatch[1];
-      content = typeMatch[2];
-  }
-  
-  const rationaleMatch = cleanText.match(/RATIONALE:\s*(.*?)(?=\s*CONSIDERED AND REJECTED:|\s*STATUS:|\s*SOURCE:|$)/);
-  if (rationaleMatch) rationale = rationaleMatch[1];
-  
-  const rejectedMatch = cleanText.match(/CONSIDERED AND REJECTED:\s*(.*?)(?=\s*STATUS:|\s*SOURCE:|$)/);
-  if (rejectedMatch) rejected = rejectedMatch[1];
+  // Attempt to parse structured format, otherwise gracefully fallback to raw text
+  try {
+      const typeMatch = cleanText.match(/^([A-Z\s]+):\s*(.*?)(?=\s*RATIONALE:|\s*CONSIDERED AND REJECTED:|\s*STATUS:|\s*SOURCE:|$)/i);
+      if (typeMatch) {
+          type = typeMatch[1];
+          content = typeMatch[2];
+      }
+      
+      const rationaleMatch = cleanText.match(/RATIONALE:\s*(.*?)(?=\s*CONSIDERED AND REJECTED:|\s*STATUS:|\s*SOURCE:|$)/i);
+      if (rationaleMatch) rationale = rationaleMatch[1];
+      
+      const rejectedMatch = cleanText.match(/CONSIDERED AND REJECTED:\s*(.*?)(?=\s*STATUS:|\s*SOURCE:|$)/i);
+      if (rejectedMatch) rejected = rejectedMatch[1];
 
-  content = content.replace(/\.$/, '');
-  rationale = rationale.replace(/\.$/, '');
-  rejected = rejected.replace(/\.$/, '');
+      content = content.replace(/\.$/, '').trim();
+      rationale = rationale.replace(/\.$/, '').trim();
+      rejected = rejected.replace(/\.$/, '').trim();
+  } catch (e) {
+      console.error("Parse fallback:", e);
+      content = cleanText;
+  }
 
   return (
     <motion.div
@@ -89,38 +97,27 @@ const MemoryCard = ({ item, onArchive }: { item: any, onArchive: (id: string, ty
 export function DataStreamPanel() {
   const params = useParams();
   const projectId = params.id as string;
-  const [items, setItems] = useState<DataItem[]>([]);
+  const { nodes, isLoading: graphIsLoading } = useGraphStore();
+  
   const [activeTab, setActiveTab] = useState<"decision" | "risk" | "task">("decision");
+  const [items, setItems] = useState<DataItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-      const fetchData = async () => {
-          if (!projectId) return;
-          setIsLoading(true);
-          try {
-              const res = await fetch(`/api/projects/${projectId}`);
-              const data = await res.json();
-              if (data && data.decisions) {
-                  // format items
-                  const formatted = [
-                      ...(data.decisions || []).map((d: any, i: number) => ({ id: `d${i}`, type: 'decision', content: d.content || d })),
-                      ...(data.tasks || []).map((t: any, i: number) => ({ id: `t${i}`, type: 'task', content: t.content || t })),
-                      ...(data.risks || []).map((r: any, i: number) => ({ id: `r${i}`, type: 'risk', content: r.content || r }))
-                  ];
-                  setItems(formatted);
-              }
-          } catch (e) {
-              console.error(e);
-          } finally {
-              setIsLoading(false);
-          }
-      };
-      fetchData();
-      
-      const onMemoryUpdated = () => fetchData();
-      document.addEventListener('memory-updated', onMemoryUpdated);
-      return () => document.removeEventListener('memory-updated', onMemoryUpdated);
-  }, [projectId]);
+      // Sync items from the graph nodes natively! No hallucination or extra API calls.
+      const formatted = nodes
+          .filter(n => {
+              const t = (n.type || "").toLowerCase();
+              return ["decision", "task", "risk"].includes(t);
+          })
+          .map((n: any) => ({
+              id: n.id,
+              type: (n.type || "").toLowerCase(),
+              content: n.content || n.label || n.name || ""
+          }));
+      setItems(formatted);
+      setIsLoading(graphIsLoading);
+  }, [nodes, graphIsLoading]);
 
   const handleArchive = async (id: string, type: string) => {
     // Fire the forget lifecycle event for the HUD log

@@ -7,5 +7,5 @@ class MemoryUnit(BaseModel):
     rationale: Optional[str] = None
     considered_alternatives: Optional[List[str]] = None
     relates_to: Optional[List[str]] = None
-    status: Literal["active", "resolved", "blocked"] = "active"
+    status: str = "active"
     source: Optional[str] = None
